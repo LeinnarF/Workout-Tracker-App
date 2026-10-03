@@ -40,6 +40,7 @@ export function ExerciseModal({ visible, exercise, onClose, onSave }: Props) {
 
   useEffect(() => {
     if (exercise) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setName(exercise.name);
       setTargetSets(exercise.target_sets || 3);
       setRepMin(exercise.rep_min || 5);
@@ -82,7 +83,7 @@ export function ExerciseModal({ visible, exercise, onClose, onSave }: Props) {
         defaultWeightLb,
       });
       onClose();
-    } catch (e) {
+    } catch {
       Alert.alert('Error', 'Failed to save exercise.');
     } finally {
       setSaving(false);

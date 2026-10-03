@@ -116,7 +116,7 @@ export async function deleteSet(db: SQLiteDatabase, setId: number): Promise<void
 export async function ensurePresetExercises(db: SQLiteDatabase): Promise<void> {
   try {
     await db.execAsync(`ALTER TABLE exercises ADD COLUMN default_weight_lb REAL;`);
-  } catch (e) {
+  } catch {
     // Column already exists
   }
 

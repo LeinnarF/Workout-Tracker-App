@@ -1,7 +1,6 @@
 import React from 'react';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
-import { Link, Tabs } from 'expo-router';
-import { Pressable } from 'react-native';
+import { Tabs } from 'expo-router';
 
 import Colors from '@/constants/Colors';
 import { useColorScheme } from '@/components/useColorScheme';
@@ -28,20 +27,6 @@ export default function TabLayout() {
         options={{
           title: 'Log',
           tabBarIcon: ({ color }) => <TabBarIcon name="list" color={color} />,
-          headerRight: () => (
-            <Link href="/modal" asChild>
-              <Pressable>
-                {({ pressed }: { pressed: boolean }) => (
-                  <FontAwesome
-                    name="gear"
-                    size={25}
-                    color={Colors[colorScheme ?? 'light'].text}
-                    style={{ marginRight: 15, opacity: pressed ? 0.5 : 1 }}
-                  />
-                )}
-              </Pressable>
-            </Link>
-          ),
         }}
       />
       <Tabs.Screen
@@ -63,6 +48,13 @@ export default function TabLayout() {
         options={{
           title: 'Timer',
           tabBarIcon: ({ color }) => <TabBarIcon name="clock-o" color={color} />,
+        }}
+      />
+      <Tabs.Screen
+        name="settings"
+        options={{
+          title: 'Settings',
+          tabBarIcon: ({ color }) => <TabBarIcon name="gear" color={color} />,
         }}
       />
     </Tabs>

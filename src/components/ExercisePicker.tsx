@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Modal, View, Text, FlatList, TouchableOpacity, TextInput, StyleSheet, SafeAreaView, Button } from 'react-native';
 import { useSQLiteContext } from 'expo-sqlite';
 import { Exercise } from '../db/types';
@@ -16,16 +16,17 @@ export function ExercisePicker({ visible, onClose, onSelect }: Props) {
   const [exercises, setExercises] = useState<Exercise[]>([]);
   const [search, setSearch] = useState('');
   
-  useEffect(() => {
-    if (visible) {
-      loadExercises();
-    }
-  }, [visible]);
-
-  const loadExercises = async () => {
+  const loadExercises = useCallback(async () => {
     const list = await getExercises(db);
     setExercises(list);
-  };
+  }, [db]);
+
+  useEffect(() => {
+    if (visible) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      loadExercises();
+    }
+  }, [visible, loadExercises]);
 
   const handleAdd = async () => {
     if (!search.trim()) return;

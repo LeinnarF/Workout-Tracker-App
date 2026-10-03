@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   StyleSheet,
   Text,
@@ -7,7 +7,6 @@ import {
   TouchableOpacity,
   ScrollView,
   Alert,
-  TextInput,
   ActivityIndicator,
 } from 'react-native';
 import { useSQLiteContext } from 'expo-sqlite';
@@ -431,7 +430,7 @@ export default function LogScreen() {
                   {/* Previous sets list for this exercise in current session */}
                   {exSets.length > 0 && (
                     <View style={styles.setsListContainer}>
-                      <Text style={styles.sectionHeading}>Today's Sets:</Text>
+                      <Text style={styles.sectionHeading}>Today&apos;s Sets:</Text>
                       {exSets.map((s, i) => (
                         <View key={s.id} style={styles.setRecordRow}>
                           <Text style={styles.setRecordText}>
@@ -463,7 +462,7 @@ export default function LogScreen() {
                       <View style={{ flex: 1 }}>
                         <Text style={styles.maxSetsReachedTitle}>Target sets completed!</Text>
                         <Text style={styles.maxSetsReachedSubtitle}>
-                          You've finished all {ex.target_sets} sets for this exercise. Delete a set above if you need to adjust.
+                          You&apos;ve finished all {ex.target_sets} sets for this exercise. Delete a set above if you need to adjust.
                         </Text>
                       </View>
                     </View>

@@ -73,7 +73,7 @@ INSERT INTO exercises (name, created_at) VALUES
     if (currentDbVersion === 2) {
       try {
         await db.execAsync(`ALTER TABLE exercises ADD COLUMN default_weight_lb REAL;`);
-      } catch (e) {
+      } catch {
         // Column might already exist
       }
       currentDbVersion = 3;

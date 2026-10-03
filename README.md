@@ -101,9 +101,10 @@ A fast, clean, and **100% offline-first** mobile workout tracker built with **Ex
 │   ├── (tabs)/
 │   │   ├── index.tsx          # Log Tab: Workout exercises, set logging, double progression
 │   │   ├── stats.tsx          # Stats Tab: Workout history and progression charts
+│   │   ├── convert.tsx        # Convert Tab: Weight converter & barbell plate calculator
 │   │   ├── timer.tsx          # Timer Tab: Circular dial countdown timer with presets
-│   │   └── convert.tsx        # Convert Tab: Weight converter & barbell plate calculator
-│   ├── modal.tsx              # Settings Modal: Backup, restore, and CSV export
+│   │   └── settings.tsx       # Settings Tab: Backup, restore, CSV export, & app settings
+│   ├── modal.tsx              # Settings Modal: Backup & restore (legacy route)
 │   └── _layout.tsx            # Root tab navigator & providers
 ├── src/
 │   ├── db/
