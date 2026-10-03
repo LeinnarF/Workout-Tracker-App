@@ -8,6 +8,7 @@ import {
   TouchableOpacity,
   ScrollView,
   ActivityIndicator,
+  useWindowDimensions,
 } from 'react-native';
 import { useSQLiteContext } from 'expo-sqlite';
 import { useFocusEffect } from 'expo-router';
@@ -20,6 +21,7 @@ import { LineChart } from 'react-native-gifted-charts';
 
 export default function StatsScreen() {
   const db = useSQLiteContext();
+  const { width: windowWidth } = useWindowDimensions();
   const [viewMode, setViewMode] = useState<'history' | 'charts'>('history');
 
   // History state
@@ -33,6 +35,8 @@ export default function StatsScreen() {
   // Charts state
   const [exercises, setExercises] = useState<Exercise[]>([]);
   const [selectedEx, setSelectedEx] = useState<number | null>(null);
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [loadingChart, setLoadingChart] = useState(false);
   const [chartData, setChartData] = useState<
     { date: string; volume: number; bestE1rm: number; bestWeight: number }[]
   >([]);
@@ -45,10 +49,17 @@ export default function StatsScreen() {
   const loadExercises = useCallback(async () => {
     const list = await getExercises(db);
     setExercises(list);
-    if (list.length > 0 && selectedEx === null) {
-      setSelectedEx(list[0].id);
-      const data = await getStatsForExercise(db, list[0].id);
-      setChartData(data);
+    if (list.length > 0) {
+      if (selectedEx === null || !list.some((e) => e.id === selectedEx)) {
+        setSelectedEx(list[0].id);
+        setLoadingChart(true);
+        try {
+          const data = await getStatsForExercise(db, list[0].id);
+          setChartData(data);
+        } finally {
+          setLoadingChart(false);
+        }
+      }
     }
   }, [db, selectedEx]);
 
@@ -82,8 +93,15 @@ export default function StatsScreen() {
 
   const handleSelectExercise = async (id: number) => {
     setSelectedEx(id);
-    const data = await getStatsForExercise(db, id);
-    setChartData(data);
+    setLoadingChart(true);
+    try {
+      const data = await getStatsForExercise(db, id);
+      setChartData(data);
+    } catch (e) {
+      console.error('Error fetching stats for exercise:', e);
+    } finally {
+      setLoadingChart(false);
+    }
   };
 
   const formatSessionDate = (dateStr: string) => {
@@ -263,29 +281,82 @@ export default function StatsScreen() {
         />
       ) : (
         <View style={{ flex: 1 }}>
-          <View style={styles.exPicker}>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-              {exercises.map((ex) => (
-                <TouchableOpacity
-                  key={ex.id}
-                  style={[styles.exPill, selectedEx === ex.id && styles.exPillActive]}
-                  onPress={() => handleSelectExercise(ex.id)}
-                >
-                  <Text
-                    style={[
-                      styles.exPillText,
-                      selectedEx === ex.id && styles.exPillTextActive,
-                    ]}
-                  >
-                    {ex.name}
+          {/* Exercise Dropdown */}
+          <View style={styles.dropdownWrapper}>
+            <TouchableOpacity
+              style={styles.dropdownButton}
+              onPress={() => setIsDropdownOpen((prev) => !prev)}
+              activeOpacity={0.7}
+            >
+              <View style={styles.dropdownLeft}>
+                <View style={styles.dropdownIconContainer}>
+                  <FontAwesome name="bar-chart" size={13} color="#007AFF" />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.dropdownLabel}>Exercise</Text>
+                  <Text style={styles.dropdownSelectedText} numberOfLines={1}>
+                    {exercises.find((e) => e.id === selectedEx)?.name ||
+                      (exercises.length > 0 ? 'Select Exercise' : 'No Exercises')}
                   </Text>
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
+                </View>
+              </View>
+              <FontAwesome
+                name={isDropdownOpen ? 'chevron-up' : 'chevron-down'}
+                size={14}
+                color="#8E8E93"
+              />
+            </TouchableOpacity>
+
+            {isDropdownOpen && (
+              <View style={styles.dropdownList}>
+                <ScrollView style={{ maxHeight: 220 }} nestedScrollEnabled bounces={false}>
+                  {exercises.map((ex, index) => {
+                    const isSelected = selectedEx === ex.id;
+                    return (
+                      <TouchableOpacity
+                        key={ex.id}
+                        style={[
+                          styles.dropdownOption,
+                          isSelected && styles.dropdownOptionActive,
+                          index === exercises.length - 1 && { borderBottomWidth: 0 },
+                        ]}
+                        onPress={() => {
+                          handleSelectExercise(ex.id);
+                          setIsDropdownOpen(false);
+                        }}
+                        activeOpacity={0.7}
+                      >
+                        <Text
+                          style={[
+                            styles.dropdownOptionText,
+                            isSelected && styles.dropdownOptionTextActive,
+                          ]}
+                        >
+                          {ex.name}
+                        </Text>
+                        {isSelected && (
+                          <FontAwesome name="check" size={14} color="#007AFF" />
+                        )}
+                      </TouchableOpacity>
+                    );
+                  })}
+                </ScrollView>
+              </View>
+            )}
           </View>
 
-          <ScrollView contentContainerStyle={styles.chartScroll}>
-            {chartData.length > 0 ? (
+          <ScrollView
+            contentContainerStyle={styles.chartScroll}
+            onScrollBeginDrag={() => {
+              if (isDropdownOpen) setIsDropdownOpen(false);
+            }}
+          >
+            {loadingChart ? (
+              <View style={styles.chartLoadingContainer}>
+                <ActivityIndicator size="small" color="#007AFF" />
+                <Text style={styles.chartLoadingText}>Loading stats...</Text>
+              </View>
+            ) : chartData.length > 0 ? (
               <>
                 <Text style={styles.chartTitle}>Estimated 1RM (lb)</Text>
                 <LineChart
@@ -293,7 +364,7 @@ export default function StatsScreen() {
                     value: d.bestE1rm,
                     label: d.date.slice(5),
                   }))}
-                  width={300}
+                  width={Math.max(280, windowWidth - 70)}
                   height={200}
                   color="#FF9500"
                   thickness={3}
@@ -306,7 +377,7 @@ export default function StatsScreen() {
                     value: d.volume,
                     label: d.date.slice(5),
                   }))}
-                  width={300}
+                  width={Math.max(280, windowWidth - 70)}
                   height={200}
                   color="#34C759"
                   thickness={3}
@@ -314,7 +385,13 @@ export default function StatsScreen() {
                 />
               </>
             ) : (
-              <Text style={styles.empty}>No data for this exercise.</Text>
+              <View style={styles.chartEmptyContainer}>
+                <FontAwesome name="line-chart" size={40} color="#C7C7CC" style={{ marginBottom: 12 }} />
+                <Text style={styles.emptyTitle}>No Data for this Exercise</Text>
+                <Text style={styles.emptySubtitle}>
+                  Log sets for {exercises.find((e) => e.id === selectedEx)?.name || 'this exercise'} to track progression here.
+                </Text>
+              </View>
             )}
           </ScrollView>
         </View>
@@ -522,34 +599,76 @@ const styles = StyleSheet.create({
     color: '#8E8E93',
     textAlign: 'center',
   },
-  empty: {
-    padding: 20,
-    textAlign: 'center',
-    color: '#888',
+  dropdownWrapper: {
+    marginHorizontal: 14,
+    marginTop: 12,
+    marginBottom: 4,
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E5E5EA',
+    overflow: 'hidden',
   },
-  exPicker: {
+  dropdownButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 14,
     paddingVertical: 12,
     backgroundColor: '#fff',
-    borderBottomWidth: 1,
-    borderBottomColor: '#E5E5EA',
   },
-  exPill: {
+  dropdownLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+    marginRight: 10,
+  },
+  dropdownIconContainer: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#EBF3FF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
+  dropdownLabel: {
+    fontSize: 11,
+    color: '#8E8E93',
+    fontWeight: '600',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginBottom: 2,
+  },
+  dropdownSelectedText: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#1C1C1E',
+  },
+  dropdownList: {
+    borderTopWidth: 1,
+    borderTopColor: '#F2F2F7',
+    backgroundColor: '#FAFAFC',
+  },
+  dropdownOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 13,
     paddingHorizontal: 16,
-    paddingVertical: 8,
-    backgroundColor: '#F2F2F7',
-    borderRadius: 20,
-    marginHorizontal: 6,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F2F2F7',
   },
-  exPillActive: {
-    backgroundColor: '#007AFF',
+  dropdownOptionActive: {
+    backgroundColor: '#EFF6FF',
   },
-  exPillText: {
+  dropdownOptionText: {
+    fontSize: 15,
     color: '#3A3A3C',
-    fontSize: 14,
     fontWeight: '500',
   },
-  exPillTextActive: {
-    color: '#fff',
+  dropdownOptionTextActive: {
+    color: '#007AFF',
     fontWeight: '700',
   },
   chartScroll: {
@@ -562,5 +681,21 @@ const styles = StyleSheet.create({
     marginBottom: 20,
     alignSelf: 'flex-start',
     color: '#1C1C1E',
+  },
+  chartLoadingContainer: {
+    paddingVertical: 60,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+  },
+  chartLoadingText: {
+    fontSize: 13,
+    color: '#8E8E93',
+  },
+  chartEmptyContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 60,
+    paddingHorizontal: 20,
   },
 });
