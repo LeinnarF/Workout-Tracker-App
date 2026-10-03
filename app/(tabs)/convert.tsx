@@ -1,13 +1,20 @@
 import React, { useState } from 'react';
-import { StyleSheet, Text, View, TextInput, SafeAreaView, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
-import { lbToKg, kgToLb, miToKm, kmToMi } from '../../src/logic/conversions';
+import {
+  StyleSheet,
+  Text,
+  View,
+  TextInput,
+  SafeAreaView,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  TouchableOpacity,
+} from 'react-native';
+import { lbToKg, kgToLb } from '../../src/logic/conversions';
 
 export default function ConvertScreen() {
   const [lbStr, setLbStr] = useState('');
   const [kgStr, setKgStr] = useState('');
-
-  const [miStr, setMiStr] = useState('');
-  const [kmStr, setKmStr] = useState('');
 
   const handleLbChange = (text: string) => {
     setLbStr(text);
@@ -29,37 +36,28 @@ export default function ConvertScreen() {
     }
   };
 
-  const handleMiChange = (text: string) => {
-    setMiStr(text);
-    const val = parseFloat(text);
-    if (!isNaN(val)) {
-      setKmStr(miToKm(val).toString());
-    } else {
-      setKmStr('');
-    }
-  };
-
-  const handleKmChange = (text: string) => {
-    setKmStr(text);
-    const val = parseFloat(text);
-    if (!isNaN(val)) {
-      setMiStr(kmToMi(val).toString());
-    } else {
-      setMiStr('');
-    }
+  const handleClear = () => {
+    setLbStr('');
+    setKgStr('');
   };
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <KeyboardAvoidingView 
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'} 
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.container}
       >
-        <ScrollView contentContainerStyle={styles.scroll}>
-          <Text style={styles.title}>Unit Converter</Text>
+        <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
+          <View style={styles.header}>
+            <Text style={styles.title}>Weight Converter</Text>
+            {(lbStr !== '' || kgStr !== '') && (
+              <TouchableOpacity onPress={handleClear} style={styles.clearBtn}>
+                <Text style={styles.clearBtnText}>Clear</Text>
+              </TouchableOpacity>
+            )}
+          </View>
 
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Weight</Text>
+          <View style={styles.card}>
             <View style={styles.row}>
               <View style={styles.inputGroup}>
                 <Text style={styles.label}>Pounds (lb)</Text>
@@ -69,9 +67,12 @@ export default function ConvertScreen() {
                   value={lbStr}
                   onChangeText={handleLbChange}
                   placeholder="0"
+                  placeholderTextColor="#A0A0A5"
                 />
               </View>
+
               <Text style={styles.equals}>=</Text>
+
               <View style={styles.inputGroup}>
                 <Text style={styles.label}>Kilograms (kg)</Text>
                 <TextInput
@@ -80,38 +81,27 @@ export default function ConvertScreen() {
                   value={kgStr}
                   onChangeText={handleKgChange}
                   placeholder="0"
+                  placeholderTextColor="#A0A0A5"
                 />
               </View>
             </View>
           </View>
 
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Distance</Text>
-            <View style={styles.row}>
-              <View style={styles.inputGroup}>
-                <Text style={styles.label}>Miles (mi)</Text>
-                <TextInput
-                  style={styles.input}
-                  keyboardType="numeric"
-                  value={miStr}
-                  onChangeText={handleMiChange}
-                  placeholder="0"
-                />
-              </View>
-              <Text style={styles.equals}>=</Text>
-              <View style={styles.inputGroup}>
-                <Text style={styles.label}>Kilometers (km)</Text>
-                <TextInput
-                  style={styles.input}
-                  keyboardType="numeric"
-                  value={kmStr}
-                  onChangeText={handleKmChange}
-                  placeholder="0"
-                />
-              </View>
+          <View style={styles.quickBarCard}>
+            <Text style={styles.quickBarTitle}>Quick Barbell Weights</Text>
+            <View style={styles.quickGrid}>
+              {[45, 95, 135, 185, 225, 275, 315].map((lb) => (
+                <TouchableOpacity
+                  key={lb}
+                  style={styles.quickPill}
+                  onPress={() => handleLbChange(lb.toString())}
+                >
+                  <Text style={styles.quickPillLb}>{lb} lb</Text>
+                  <Text style={styles.quickPillKg}>≈ {lbToKg(lb)} kg</Text>
+                </TouchableOpacity>
+              ))}
             </View>
           </View>
-          
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -121,29 +111,44 @@ export default function ConvertScreen() {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: '#F8F9FA',
   },
   container: {
     flex: 1,
   },
   scroll: {
-    padding: 20,
+    padding: 16,
+  },
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 20,
+    marginTop: 8,
   },
   title: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    marginBottom: 30,
+    fontSize: 26,
+    fontWeight: '700',
+    color: '#1C1C1E',
   },
-  section: {
-    marginBottom: 40,
-    backgroundColor: '#f9f9f9',
-    padding: 16,
-    borderRadius: 12,
+  clearBtn: {
+    backgroundColor: '#E5E5EA',
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 8,
   },
-  sectionTitle: {
-    fontSize: 18,
+  clearBtnText: {
+    color: '#3A3A3C',
+    fontSize: 14,
     fontWeight: '600',
-    marginBottom: 16,
+  },
+  card: {
+    backgroundColor: '#fff',
+    borderRadius: 14,
+    padding: 18,
+    borderWidth: 1,
+    borderColor: '#E5E5EA',
+    marginBottom: 24,
   },
   row: {
     flexDirection: 'row',
@@ -155,21 +160,61 @@ const styles = StyleSheet.create({
   },
   label: {
     fontSize: 14,
-    color: '#666',
+    fontWeight: '600',
+    color: '#3A3A3C',
     marginBottom: 8,
   },
   input: {
-    backgroundColor: '#fff',
+    backgroundColor: '#F8F9FA',
     borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 8,
-    padding: 12,
-    fontSize: 18,
+    borderColor: '#E5E5EA',
+    borderRadius: 10,
+    padding: 14,
+    fontSize: 22,
+    fontWeight: '700',
+    color: '#1C1C1E',
+    textAlign: 'center',
   },
   equals: {
-    fontSize: 24,
-    color: '#888',
-    marginHorizontal: 16,
-    marginTop: 20, // Align with inputs, roughly
+    fontSize: 26,
+    fontWeight: '700',
+    color: '#8E8E93',
+    marginHorizontal: 12,
+    marginTop: 24,
+  },
+  quickBarCard: {
+    backgroundColor: '#fff',
+    borderRadius: 14,
+    padding: 18,
+    borderWidth: 1,
+    borderColor: '#E5E5EA',
+  },
+  quickBarTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#1C1C1E',
+    marginBottom: 12,
+  },
+  quickGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+  },
+  quickPill: {
+    backgroundColor: '#F2F2F7',
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 10,
+    alignItems: 'center',
+  },
+  quickPillLb: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#1C1C1E',
+  },
+  quickPillKg: {
+    fontSize: 12,
+    color: '#8E8E93',
+    marginTop: 2,
   },
 });
