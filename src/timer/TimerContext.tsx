@@ -1,5 +1,6 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
-import { useKeepAwake } from 'expo-keep-awake';
+import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
+import { activateKeepAwakeAsync, deactivateKeepAwake } from 'expo-keep-awake';
+import * as Haptics from 'expo-haptics';
 
 interface TimerContextType {
   targetTime: number | null; // epoch timestamp
@@ -7,7 +8,9 @@ interface TimerContextType {
   startTimer: (durationMs: number) => void;
   pauseTimer: (remainingMs: number) => void;
   resetTimer: () => void;
+  addTime: (additionalMs: number) => void;
   timeRemainingMs: number;
+  initialDurationMs: number;
 }
 
 const TimerContext = createContext<TimerContextType | null>(null);
@@ -16,13 +19,18 @@ export function TimerProvider({ children }: { children: React.ReactNode }) {
   const [targetTime, setTargetTime] = useState<number | null>(null);
   const [isRunning, setIsRunning] = useState(false);
   const [timeRemainingMs, setTimeRemainingMs] = useState(0);
+  const [initialDurationMs, setInitialDurationMs] = useState(0);
+  const isRunningRef = useRef(isRunning);
 
-  // Keep screen awake while timer is running
-  if (isRunning) {
-    // We can conditionally call hooks here if we use a component or just handle it. 
-    // Wait, useKeepAwake() must be called at top level or unconditionally.
-    // Let's use a wrapper component for keep awake.
-  }
+  // Manage keep-awake and ref
+  useEffect(() => {
+    isRunningRef.current = isRunning;
+    if (isRunning) {
+      activateKeepAwakeAsync('workout_rest_timer');
+    } else {
+      deactivateKeepAwake('workout_rest_timer');
+    }
+  }, [isRunning]);
 
   useEffect(() => {
     let interval: ReturnType<typeof setInterval>;
@@ -31,11 +39,15 @@ export function TimerProvider({ children }: { children: React.ReactNode }) {
         const now = Date.now();
         const remaining = Math.max(0, targetTime - now);
         setTimeRemainingMs(remaining);
-        
+
         if (remaining <= 0) {
           setIsRunning(false);
           setTargetTime(null);
-          // TODO: Trigger haptic alert
+          try {
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+          } catch {
+            // ignore if haptics unavailable
+          }
         }
       }, 100);
     }
@@ -43,6 +55,7 @@ export function TimerProvider({ children }: { children: React.ReactNode }) {
   }, [isRunning, targetTime]);
 
   const startTimer = (durationMs: number) => {
+    setInitialDurationMs(durationMs);
     setTargetTime(Date.now() + durationMs);
     setTimeRemainingMs(durationMs);
     setIsRunning(true);
@@ -58,10 +71,33 @@ export function TimerProvider({ children }: { children: React.ReactNode }) {
     setIsRunning(false);
     setTargetTime(null);
     setTimeRemainingMs(0);
+    setInitialDurationMs(0);
+  };
+
+  const addTime = (additionalMs: number) => {
+    setTimeRemainingMs((prev) => {
+      const next = prev + additionalMs;
+      if (isRunningRef.current) {
+        setTargetTime(Date.now() + next);
+      }
+      return next;
+    });
+    setInitialDurationMs((prev) => Math.max(prev, prev + additionalMs));
   };
 
   return (
-    <TimerContext.Provider value={{ targetTime, isRunning, startTimer, pauseTimer, resetTimer, timeRemainingMs }}>
+    <TimerContext.Provider
+      value={{
+        targetTime,
+        isRunning,
+        startTimer,
+        pauseTimer,
+        resetTimer,
+        addTime,
+        timeRemainingMs,
+        initialDurationMs,
+      }}
+    >
       {children}
     </TimerContext.Provider>
   );
@@ -74,3 +110,4 @@ export function useTimer() {
   }
   return context;
 }
+
