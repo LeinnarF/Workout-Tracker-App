@@ -5,6 +5,9 @@ import { useEffect } from 'react';
 import 'react-native-reanimated';
 
 import { useColorScheme } from '@/components/useColorScheme';
+import { SQLiteProvider } from 'expo-sqlite';
+import { migrateDbIfNeeded } from '../src/db/schema';
+import { TimerProvider } from '../src/timer/TimerContext';
 
 export {
   // Catch any errors thrown by the Layout component.
@@ -47,10 +50,14 @@ function RootLayoutNav() {
 
   return (
     <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-      <Stack>
-        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        <Stack.Screen name="modal" options={{ presentation: 'modal' }} />
-      </Stack>
+      <SQLiteProvider databaseName="gym.db" onInit={migrateDbIfNeeded}>
+        <TimerProvider>
+          <Stack>
+            <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+            <Stack.Screen name="modal" options={{ presentation: 'modal' }} />
+          </Stack>
+        </TimerProvider>
+      </SQLiteProvider>
     </ThemeProvider>
   );
 }
