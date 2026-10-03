@@ -15,9 +15,9 @@ import { useFocusEffect } from 'expo-router';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 
 import { getPastSessions, getStatsForExercise, getSessionSets } from '../../src/db/statsQueries';
-import { Session, Exercise, SetRecord } from '../../src/db/types';
+import { Session, Exercise, SetRecord, WeeklyRepStat } from '../../src/db/types';
 import { getExercises } from '../../src/db/queries';
-import { LineChart } from 'react-native-gifted-charts';
+import { LineChart, BarChart } from 'react-native-gifted-charts';
 
 export default function StatsScreen() {
   const db = useSQLiteContext();
@@ -40,6 +40,8 @@ export default function StatsScreen() {
   const [chartData, setChartData] = useState<
     { date: string; volume: number; bestE1rm: number; bestWeight: number }[]
   >([]);
+  const [weeklyData, setWeeklyData] = useState<WeeklyRepStat[]>([]);
+  const [selectedWeek, setSelectedWeek] = useState<WeeklyRepStat | null>(null);
 
   const loadHistory = useCallback(async () => {
     const past = await getPastSessions(db);
@@ -54,8 +56,10 @@ export default function StatsScreen() {
         setSelectedEx(list[0].id);
         setLoadingChart(true);
         try {
-          const data = await getStatsForExercise(db, list[0].id);
-          setChartData(data);
+          const stats = await getStatsForExercise(db, list[0].id);
+          setChartData(stats.daily);
+          setWeeklyData(stats.weekly);
+          setSelectedWeek(null);
         } finally {
           setLoadingChart(false);
         }
@@ -94,9 +98,11 @@ export default function StatsScreen() {
   const handleSelectExercise = async (id: number) => {
     setSelectedEx(id);
     setLoadingChart(true);
+    setSelectedWeek(null);
     try {
-      const data = await getStatsForExercise(db, id);
-      setChartData(data);
+      const stats = await getStatsForExercise(db, id);
+      setChartData(stats.daily);
+      setWeeklyData(stats.weekly);
     } catch (e) {
       console.error('Error fetching stats for exercise:', e);
     } finally {
@@ -356,33 +362,141 @@ export default function StatsScreen() {
                 <ActivityIndicator size="small" color="#007AFF" />
                 <Text style={styles.chartLoadingText}>Loading stats...</Text>
               </View>
-            ) : chartData.length > 0 ? (
+            ) : weeklyData.length > 0 || chartData.length > 0 ? (
               <>
-                <Text style={styles.chartTitle}>Estimated 1RM (lb)</Text>
-                <LineChart
-                  data={chartData.map((d) => ({
-                    value: d.bestE1rm,
-                    label: d.date.slice(5),
-                  }))}
-                  width={Math.max(280, windowWidth - 70)}
-                  height={200}
-                  color="#FF9500"
-                  thickness={3}
-                  dataPointsColor="#FF9500"
-                />
+                {/* 1. Weekly Total Reps Bar Graph */}
+                <View style={styles.chartHeaderBlock}>
+                  <Text style={styles.chartTitle}>Weekly Total Reps</Text>
+                  <Text style={styles.chartSubtitle}>
+                    Total reps completed per week. Bar color changes when weight increased.
+                  </Text>
 
-                <Text style={[styles.chartTitle, { marginTop: 40 }]}>Volume (lb × reps)</Text>
-                <LineChart
-                  data={chartData.map((d) => ({
-                    value: d.volume,
-                    label: d.date.slice(5),
-                  }))}
-                  width={Math.max(280, windowWidth - 70)}
-                  height={200}
-                  color="#34C759"
-                  thickness={3}
-                  dataPointsColor="#34C759"
-                />
+                  {/* Legend */}
+                  <View style={styles.chartLegend}>
+                    <View style={styles.legendItem}>
+                      <View style={[styles.legendIndicator, { backgroundColor: '#007AFF' }]} />
+                      <Text style={styles.legendText}>Standard Week</Text>
+                    </View>
+                    <View style={styles.legendItem}>
+                      <View style={[styles.legendIndicator, { backgroundColor: '#34C759' }]} />
+                      <Text style={styles.legendText}>Weight Increased (+lb)</Text>
+                    </View>
+                  </View>
+                </View>
+
+                {weeklyData.length > 0 ? (
+                  <View style={styles.barChartContainer}>
+                    <BarChart
+                      data={weeklyData.map((w) => {
+                        const isSelected = selectedWeek?.weekStart === w.weekStart;
+                        return {
+                          value: w.totalReps,
+                          label: w.label,
+                          frontColor: w.hasWeightIncrease ? '#34C759' : '#007AFF',
+                          onPress: () => setSelectedWeek(isSelected ? null : w),
+                          topLabelComponent: () => (
+                            <Text
+                              style={{
+                                fontSize: 10,
+                                fontWeight: '700',
+                                color: w.hasWeightIncrease ? '#2E7D32' : '#007AFF',
+                                marginBottom: 2,
+                              }}
+                            >
+                              {w.totalReps}
+                            </Text>
+                          ),
+                        };
+                      })}
+                      width={Math.max(280, windowWidth - 70)}
+                      height={190}
+                      barWidth={Math.min(
+                        32,
+                        Math.max(
+                          22,
+                          Math.floor((Math.max(280, windowWidth - 70) - 70) / Math.max(1, weeklyData.length * 1.5))
+                        )
+                      )}
+                      spacing={Math.min(
+                        24,
+                        Math.max(
+                          12,
+                          Math.floor((Math.max(280, windowWidth - 70) - 70) / Math.max(1, weeklyData.length * 2))
+                        )
+                      )}
+                      initialSpacing={16}
+                      roundedTop
+                      roundedBottom={false}
+                      xAxisThickness={1}
+                      xAxisColor="#E5E5EA"
+                      yAxisThickness={1}
+                      yAxisColor="#E5E5EA"
+                      yAxisTextStyle={{ color: '#8E8E93', fontSize: 11 }}
+                      xAxisLabelTextStyle={{ color: '#8E8E93', fontSize: 11 }}
+                      noOfSections={4}
+                      rulesColor="#F2F2F7"
+                      isAnimated
+                      animationDuration={400}
+                    />
+
+                    {selectedWeek && (
+                      <View style={styles.weekDetailCard}>
+                        <View style={styles.weekDetailHeader}>
+                          <Text style={styles.weekDetailTitle}>
+                            Week of {selectedWeek.label}
+                          </Text>
+                          {selectedWeek.hasWeightIncrease ? (
+                            <View style={styles.increaseBadge}>
+                              <FontAwesome name="arrow-up" size={10} color="#2E7D32" />
+                              <Text style={styles.increaseBadgeText}>Weight Increased</Text>
+                            </View>
+                          ) : (
+                            <View style={styles.standardBadge}>
+                              <Text style={styles.standardBadgeText}>Standard</Text>
+                            </View>
+                          )}
+                        </View>
+                        <Text style={styles.weekDetailText}>
+                          Total Reps: <Text style={styles.bold}>{selectedWeek.totalReps}</Text> • Peak Weight: <Text style={styles.bold}>{selectedWeek.maxWeight} lb</Text>
+                        </Text>
+                      </View>
+                    )}
+                  </View>
+                ) : (
+                  <Text style={styles.chartNoData}>No weekly sets recorded yet.</Text>
+                )}
+
+                {/* 2. Estimated 1RM */}
+                {chartData.length > 0 && (
+                  <>
+                    <Text style={[styles.chartTitle, { marginTop: 36 }]}>Estimated 1RM (lb)</Text>
+                    <LineChart
+                      data={chartData.map((d) => ({
+                        value: d.bestE1rm,
+                        label: d.date.slice(5),
+                      }))}
+                      width={Math.max(280, windowWidth - 70)}
+                      height={190}
+                      color="#FF9500"
+                      thickness={3}
+                      dataPointsColor="#FF9500"
+                    />
+
+                    {/* 3. Volume */}
+                    <Text style={[styles.chartTitle, { marginTop: 36 }]}>Volume (lb × reps)</Text>
+                    <LineChart
+                      data={chartData.map((d) => ({
+                        value: d.volume,
+                        label: d.date.slice(5),
+                      }))}
+                      width={Math.max(280, windowWidth - 70)}
+                      height={190}
+                      color="#34C759"
+                      thickness={3}
+                      dataPointsColor="#34C759"
+                    />
+                  </>
+                )}
               </>
             ) : (
               <View style={styles.chartEmptyContainer}>
@@ -678,9 +792,103 @@ const styles = StyleSheet.create({
   chartTitle: {
     fontSize: 18,
     fontWeight: 'bold',
-    marginBottom: 20,
+    marginBottom: 4,
     alignSelf: 'flex-start',
     color: '#1C1C1E',
+  },
+  chartHeaderBlock: {
+    width: '100%',
+    marginBottom: 12,
+  },
+  chartSubtitle: {
+    fontSize: 12,
+    color: '#8E8E93',
+    marginTop: 2,
+    marginBottom: 8,
+  },
+  chartLegend: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 16,
+    marginTop: 4,
+  },
+  legendItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  legendIndicator: {
+    width: 12,
+    height: 12,
+    borderRadius: 3,
+  },
+  legendText: {
+    fontSize: 12,
+    color: '#636366',
+    fontWeight: '500',
+  },
+  barChartContainer: {
+    alignItems: 'center',
+    width: '100%',
+  },
+  weekDetailCard: {
+    marginTop: 14,
+    backgroundColor: '#fff',
+    borderWidth: 1,
+    borderColor: '#E5E5EA',
+    borderRadius: 10,
+    padding: 12,
+    width: '100%',
+  },
+  weekDetailHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  weekDetailTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#1C1C1E',
+  },
+  weekDetailText: {
+    fontSize: 13,
+    color: '#636366',
+  },
+  bold: {
+    fontWeight: '700',
+    color: '#1C1C1E',
+  },
+  increaseBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#E8F5E9',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+    gap: 4,
+  },
+  increaseBadgeText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#2E7D32',
+  },
+  standardBadge: {
+    backgroundColor: '#EFF6FF',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+  },
+  standardBadgeText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#007AFF',
+  },
+  chartNoData: {
+    fontSize: 13,
+    color: '#8E8E93',
+    paddingVertical: 20,
+    textAlign: 'center',
   },
   chartLoadingContainer: {
     paddingVertical: 60,

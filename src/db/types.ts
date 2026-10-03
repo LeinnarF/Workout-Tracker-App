@@ -26,3 +26,13 @@ export interface SetRecord {
   reps: number;
   is_warmup: number;
 }
+
+export interface WeeklyRepStat {
+  weekStart: string;
+  label: string;
+  totalReps: number;
+  maxWeight: number;
+  prevMaxWeight: number | null;
+  hasWeightIncrease: boolean;
+  weights: number[];
+}
