@@ -1,6 +1,16 @@
 import { SQLiteDatabase } from 'expo-sqlite';
-import { Session, SetRecord, WeeklyRepStat } from './types';
+import {
+  Session,
+  SetRecord,
+  WeeklyRepStat,
+  TimeRange,
+  ExercisePR,
+  LifetimeStats,
+  ExerciseOverloadStatus,
+} from './types';
 import { calculateE1RM } from '../logic/conversions';
+import { getExercises, getLastSessionSetsForExercise } from './queries';
+import { suggestNext } from '../logic/suggestNext';
 
 export async function getPastSessions(db: SQLiteDatabase): Promise<Session[]> {
   return await db.getAllAsync<Session>(
@@ -45,15 +55,37 @@ export function formatWeekLabel(dateStr: string): string {
   return dateStr;
 }
 
-export async function getStatsForExercise(db: SQLiteDatabase, exerciseId: number) {
-  const sets = await db.getAllAsync<SetRecord & { started_at: string }>(
-    `SELECT sets.*, sessions.started_at 
-     FROM sets 
-     JOIN sessions ON sets.session_id = sessions.id 
-     WHERE sets.exercise_id = ? AND sets.is_warmup = 0
-     ORDER BY sessions.started_at ASC, sets.id ASC`,
-    [exerciseId]
-  );
+export async function getStatsForExercise(
+  db: SQLiteDatabase,
+  exerciseId: number,
+  timeRange: TimeRange = 'ALL'
+) {
+  let cutoffDate: string | null = null;
+  const now = Date.now();
+  if (timeRange === '4W') {
+    cutoffDate = new Date(now - 28 * 24 * 60 * 60 * 1000).toISOString();
+  } else if (timeRange === '3M') {
+    cutoffDate = new Date(now - 90 * 24 * 60 * 60 * 1000).toISOString();
+  } else if (timeRange === '1Y') {
+    cutoffDate = new Date(now - 365 * 24 * 60 * 60 * 1000).toISOString();
+  }
+
+  let query = `
+    SELECT sets.*, sessions.started_at 
+    FROM sets 
+    JOIN sessions ON sets.session_id = sessions.id 
+    WHERE sets.exercise_id = ? AND sets.is_warmup = 0
+  `;
+  const params: (number | string)[] = [exerciseId];
+
+  if (cutoffDate) {
+    query += ' AND sessions.started_at >= ?';
+    params.push(cutoffDate);
+  }
+
+  query += ' ORDER BY sessions.started_at ASC, sets.id ASC';
+
+  const sets = await db.getAllAsync<SetRecord & { started_at: string }>(query, params);
 
   // Compute daily stats (volume and best e1rm per date)
   const statsBySession: Record<string, { volume: number; bestE1rm: number; bestWeight: number }> = {};
@@ -130,4 +162,198 @@ export async function getStatsForExercise(db: SQLiteDatabase, exerciseId: number
   });
 
   return { daily, weekly };
+}
+
+export async function getExercisePRs(
+  db: SQLiteDatabase,
+  exerciseId?: number
+): Promise<ExercisePR[]> {
+  const query = `
+    SELECT 
+      sets.exercise_id,
+      exercises.name as exercise_name,
+      sets.weight_lb,
+      sets.reps,
+      sessions.started_at
+    FROM sets
+    JOIN exercises ON sets.exercise_id = exercises.id
+    JOIN sessions ON sets.session_id = sessions.id
+    WHERE sets.is_warmup = 0 ${exerciseId ? 'AND sets.exercise_id = ?' : ''}
+    ORDER BY sessions.started_at ASC, sets.id ASC
+  `;
+  const params = exerciseId ? [exerciseId] : [];
+  const rows = await db.getAllAsync<{
+    exercise_id: number;
+    exercise_name: string;
+    weight_lb: number;
+    reps: number;
+    started_at: string;
+  }>(query, params);
+
+  const byExercise: Record<
+    number,
+    {
+      exerciseId: number;
+      exerciseName: string;
+      heaviestWeightLb: number;
+      heaviestWeightDate: string;
+      bestE1rm: number;
+      bestE1rmDate: string;
+      sessionVolumes: Record<string, number>;
+    }
+  > = {};
+
+  for (const r of rows) {
+    const e1rm = calculateE1RM(r.weight_lb, r.reps);
+    const dateStr = r.started_at.split('T')[0];
+    const sessionKey = r.started_at;
+
+    if (!byExercise[r.exercise_id]) {
+      byExercise[r.exercise_id] = {
+        exerciseId: r.exercise_id,
+        exerciseName: r.exercise_name,
+        heaviestWeightLb: r.weight_lb,
+        heaviestWeightDate: dateStr,
+        bestE1rm: e1rm,
+        bestE1rmDate: dateStr,
+        sessionVolumes: {},
+      };
+    }
+
+    const ex = byExercise[r.exercise_id];
+
+    if (r.weight_lb >= ex.heaviestWeightLb) {
+      ex.heaviestWeightLb = r.weight_lb;
+      ex.heaviestWeightDate = dateStr;
+    }
+
+    if (e1rm >= ex.bestE1rm) {
+      ex.bestE1rm = Math.round(e1rm);
+      ex.bestE1rmDate = dateStr;
+    }
+
+    ex.sessionVolumes[sessionKey] =
+      (ex.sessionVolumes[sessionKey] || 0) + r.weight_lb * r.reps;
+  }
+
+  return Object.values(byExercise).map((ex) => {
+    let maxSessionVolume = 0;
+    let maxSessionVolumeDate = '';
+
+    for (const [sessionDate, vol] of Object.entries(ex.sessionVolumes)) {
+      if (vol >= maxSessionVolume) {
+        maxSessionVolume = Math.round(vol);
+        maxSessionVolumeDate = sessionDate.split('T')[0];
+      }
+    }
+
+    return {
+      exerciseId: ex.exerciseId,
+      exerciseName: ex.exerciseName,
+      heaviestWeightLb: ex.heaviestWeightLb,
+      heaviestWeightDate: ex.heaviestWeightDate,
+      bestE1rm: ex.bestE1rm,
+      bestE1rmDate: ex.bestE1rmDate,
+      maxSessionVolume,
+      maxSessionVolumeDate,
+    };
+  });
+}
+
+export async function getLifetimeStats(db: SQLiteDatabase): Promise<LifetimeStats> {
+  const totalWorkoutsRow = await db.getFirstAsync<{ count: number }>(
+    'SELECT COUNT(DISTINCT session_id) as count FROM sets WHERE is_warmup = 0'
+  );
+  const totalSetsRow = await db.getFirstAsync<{ count: number }>(
+    'SELECT COUNT(*) as count FROM sets WHERE is_warmup = 0'
+  );
+  const totalVolumeRow = await db.getFirstAsync<{ total_volume: number }>(
+    'SELECT COALESCE(SUM(weight_lb * reps), 0) as total_volume FROM sets WHERE is_warmup = 0'
+  );
+
+  const currentMonday = getMondayOfWeek(new Date().toISOString());
+
+  const thisWeekRow = await db.getFirstAsync<{ count: number }>(
+    `SELECT COUNT(DISTINCT sessions.id) as count 
+     FROM sessions 
+     JOIN sets ON sessions.id = sets.session_id 
+     WHERE sets.is_warmup = 0 AND sessions.started_at >= ?`,
+    [currentMonday]
+  );
+
+  // Compute streak of consecutive weeks with workouts
+  const pastSessionDates = await db.getAllAsync<{ started_at: string }>(
+    `SELECT DISTINCT sessions.started_at 
+     FROM sessions 
+     JOIN sets ON sessions.id = sets.session_id 
+     WHERE sets.is_warmup = 0 
+     ORDER BY sessions.started_at DESC`
+  );
+
+  const weekSet = new Set(pastSessionDates.map((s) => getMondayOfWeek(s.started_at)));
+  let streak = 0;
+  let checkDate = new Date();
+  let checkMonday = getMondayOfWeek(checkDate.toISOString());
+
+  if (!weekSet.has(checkMonday)) {
+    const prevWeek = new Date(checkDate.getTime() - 7 * 24 * 60 * 60 * 1000);
+    const prevMonday = getMondayOfWeek(prevWeek.toISOString());
+    if (weekSet.has(prevMonday)) {
+      checkMonday = prevMonday;
+    } else {
+      checkMonday = '';
+    }
+  }
+
+  if (checkMonday) {
+    while (weekSet.has(checkMonday)) {
+      streak++;
+      const [y, m, d] = checkMonday.split('-').map(Number);
+      const dObj = new Date(y, m - 1, d);
+      dObj.setDate(dObj.getDate() - 7);
+      checkMonday = getMondayOfWeek(dObj.toISOString());
+    }
+  }
+
+  return {
+    totalWorkouts: totalWorkoutsRow?.count || 0,
+    totalSets: totalSetsRow?.count || 0,
+    totalVolumeLb: Math.round(totalVolumeRow?.total_volume || 0),
+    currentStreakWeeks: streak,
+    workoutsThisWeek: thisWeekRow?.count || 0,
+    weeklyTarget: 3,
+  };
+}
+
+export async function getAllExercisesOverloadStatus(
+  db: SQLiteDatabase
+): Promise<ExerciseOverloadStatus[]> {
+  const exercises = await getExercises(db);
+  const result: ExerciseOverloadStatus[] = [];
+
+  for (const ex of exercises) {
+    const history = await getLastSessionSetsForExercise(db, ex.id);
+    const sug = suggestNext(ex, history);
+    const workingSets = history.filter((s) => s.is_warmup === 0);
+    const currentWeight =
+      ex.default_weight_lb != null && ex.default_weight_lb > 0
+        ? ex.default_weight_lb
+        : workingSets.length > 0
+        ? workingSets[workingSets.length - 1].weight_lb
+        : 45;
+
+    result.push({
+      exerciseId: ex.id,
+      exerciseName: ex.name,
+      isReadyForIncrease: sug.shouldIncrease,
+      suggestedWeightLb: sug.suggestedWeightLb,
+      currentWeightLb: currentWeight,
+      repMin: ex.rep_min,
+      repMax: ex.rep_max,
+      targetSets: ex.target_sets,
+      lastSessionReps: workingSets.map((s) => s.reps),
+    });
+  }
+
+  return result;
 }

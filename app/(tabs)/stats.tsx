@@ -14,15 +14,44 @@ import { useSQLiteContext } from 'expo-sqlite';
 import { useFocusEffect } from 'expo-router';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 
-import { getPastSessions, getStatsForExercise, getSessionSets } from '../../src/db/statsQueries';
-import { Session, Exercise, SetRecord, WeeklyRepStat } from '../../src/db/types';
+import {
+  getPastSessions,
+  getStatsForExercise,
+  getSessionSets,
+  getExercisePRs,
+  getLifetimeStats,
+  getAllExercisesOverloadStatus,
+} from '../../src/db/statsQueries';
+import {
+  Session,
+  Exercise,
+  SetRecord,
+  WeeklyRepStat,
+  TimeRange,
+  ExercisePR,
+  LifetimeStats,
+  ExerciseOverloadStatus,
+} from '../../src/db/types';
 import { getExercises } from '../../src/db/queries';
 import { LineChart, BarChart } from 'react-native-gifted-charts';
+
+const TIME_RANGES: { label: string; value: TimeRange }[] = [
+  { label: '4W', value: '4W' },
+  { label: '3M', value: '3M' },
+  { label: '1Y', value: '1Y' },
+  { label: 'All', value: 'ALL' },
+];
 
 export default function StatsScreen() {
   const db = useSQLiteContext();
   const { width: windowWidth } = useWindowDimensions();
-  const [viewMode, setViewMode] = useState<'history' | 'charts'>('history');
+  const [viewMode, setViewMode] = useState<'overview' | 'charts' | 'history'>('overview');
+
+  // Overview state
+  const [lifetimeStats, setLifetimeStats] = useState<LifetimeStats | null>(null);
+  const [prs, setPrs] = useState<ExercisePR[]>([]);
+  const [overloadStatuses, setOverloadStatuses] = useState<ExerciseOverloadStatus[]>([]);
+  const [loadingOverview, setLoadingOverview] = useState(false);
 
   // History state
   const [sessions, setSessions] = useState<Session[]>([]);
@@ -36,12 +65,31 @@ export default function StatsScreen() {
   const [exercises, setExercises] = useState<Exercise[]>([]);
   const [selectedEx, setSelectedEx] = useState<number | null>(null);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [timeRange, setTimeRange] = useState<TimeRange>('ALL');
   const [loadingChart, setLoadingChart] = useState(false);
   const [chartData, setChartData] = useState<
     { date: string; volume: number; bestE1rm: number; bestWeight: number }[]
   >([]);
   const [weeklyData, setWeeklyData] = useState<WeeklyRepStat[]>([]);
   const [selectedWeek, setSelectedWeek] = useState<WeeklyRepStat | null>(null);
+
+  const loadOverview = useCallback(async () => {
+    setLoadingOverview(true);
+    try {
+      const [life, prList, overloadList] = await Promise.all([
+        getLifetimeStats(db),
+        getExercisePRs(db),
+        getAllExercisesOverloadStatus(db),
+      ]);
+      setLifetimeStats(life);
+      setPrs(prList);
+      setOverloadStatuses(overloadList);
+    } catch (e) {
+      console.error('Error loading overview stats:', e);
+    } finally {
+      setLoadingOverview(false);
+    }
+  }, [db]);
 
   const loadHistory = useCallback(async () => {
     const past = await getPastSessions(db);
@@ -52,26 +100,29 @@ export default function StatsScreen() {
     const list = await getExercises(db);
     setExercises(list);
     if (list.length > 0) {
-      if (selectedEx === null || !list.some((e) => e.id === selectedEx)) {
-        setSelectedEx(list[0].id);
-        setLoadingChart(true);
-        try {
-          const stats = await getStatsForExercise(db, list[0].id);
-          setChartData(stats.daily);
-          setWeeklyData(stats.weekly);
-          setSelectedWeek(null);
-        } finally {
-          setLoadingChart(false);
-        }
+      const activeId =
+        selectedEx && list.some((e) => e.id === selectedEx) ? selectedEx : list[0].id;
+      if (selectedEx !== activeId) {
+        setSelectedEx(activeId);
+      }
+      setLoadingChart(true);
+      try {
+        const stats = await getStatsForExercise(db, activeId, timeRange);
+        setChartData(stats.daily);
+        setWeeklyData(stats.weekly);
+        setSelectedWeek(null);
+      } finally {
+        setLoadingChart(false);
       }
     }
-  }, [db, selectedEx]);
+  }, [db, selectedEx, timeRange]);
 
   useFocusEffect(
     useCallback(() => {
+      loadOverview();
       loadHistory();
       loadExercises();
-    }, [loadHistory, loadExercises])
+    }, [loadOverview, loadHistory, loadExercises])
   );
 
   const handleToggleSession = async (sessionId: number) => {
@@ -95,12 +146,28 @@ export default function StatsScreen() {
     }
   };
 
+  const handleSelectTimeRange = async (range: TimeRange) => {
+    setTimeRange(range);
+    if (selectedEx) {
+      setLoadingChart(true);
+      try {
+        const stats = await getStatsForExercise(db, selectedEx, range);
+        setChartData(stats.daily);
+        setWeeklyData(stats.weekly);
+      } catch (e) {
+        console.error('Error filtering chart stats:', e);
+      } finally {
+        setLoadingChart(false);
+      }
+    }
+  };
+
   const handleSelectExercise = async (id: number) => {
     setSelectedEx(id);
     setLoadingChart(true);
     setSelectedWeek(null);
     try {
-      const stats = await getStatsForExercise(db, id);
+      const stats = await getStatsForExercise(db, id, timeRange);
       setChartData(stats.daily);
       setWeeklyData(stats.weekly);
     } catch (e) {
@@ -129,26 +196,234 @@ export default function StatsScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
+      {/* View Switcher: Overview | Charts | History */}
       <View style={styles.toggleRow}>
         <TouchableOpacity
-          style={[styles.toggleBtn, viewMode === 'history' && styles.toggleBtnActive]}
-          onPress={() => setViewMode('history')}
+          style={[styles.toggleBtn, viewMode === 'overview' && styles.toggleBtnActive]}
+          onPress={() => setViewMode('overview')}
+          activeOpacity={0.7}
         >
-          <Text style={[styles.toggleText, viewMode === 'history' && styles.toggleTextActive]}>
-            History
+          <Text style={[styles.toggleText, viewMode === 'overview' && styles.toggleTextActive]}>
+            Overview
           </Text>
         </TouchableOpacity>
         <TouchableOpacity
           style={[styles.toggleBtn, viewMode === 'charts' && styles.toggleBtnActive]}
           onPress={() => setViewMode('charts')}
+          activeOpacity={0.7}
         >
           <Text style={[styles.toggleText, viewMode === 'charts' && styles.toggleTextActive]}>
             Charts
           </Text>
         </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.toggleBtn, viewMode === 'history' && styles.toggleBtnActive]}
+          onPress={() => setViewMode('history')}
+          activeOpacity={0.7}
+        >
+          <Text style={[styles.toggleText, viewMode === 'history' && styles.toggleTextActive]}>
+            History
+          </Text>
+        </TouchableOpacity>
       </View>
 
-      {viewMode === 'history' ? (
+      {viewMode === 'overview' ? (
+        <ScrollView
+          contentContainerStyle={styles.overviewScroll}
+          showsVerticalScrollIndicator={false}
+        >
+          {loadingOverview ? (
+            <View style={styles.detailsLoading}>
+              <ActivityIndicator size="small" color="#007AFF" />
+              <Text style={styles.detailsLoadingText}>Loading analytics...</Text>
+            </View>
+          ) : (
+            <>
+              {/* 1. Lifetime KPIs */}
+              <View style={styles.kpiRow}>
+                <View style={styles.kpiCard}>
+                  <View style={[styles.kpiIconBox, { backgroundColor: '#EFF6FF' }]}>
+                    <FontAwesome name="calendar-check-o" size={13} color="#007AFF" />
+                  </View>
+                  <Text style={styles.kpiValue}>{lifetimeStats?.totalWorkouts || 0}</Text>
+                  <Text style={styles.kpiLabel}>Workouts</Text>
+                </View>
+
+                <View style={styles.kpiCard}>
+                  <View style={[styles.kpiIconBox, { backgroundColor: '#E8F5E9' }]}>
+                    <FontAwesome name="database" size={13} color="#2E7D32" />
+                  </View>
+                  <Text style={styles.kpiValue}>
+                    {lifetimeStats
+                      ? lifetimeStats.totalVolumeLb >= 1000
+                        ? `${(lifetimeStats.totalVolumeLb / 1000).toFixed(1)}k`
+                        : lifetimeStats.totalVolumeLb
+                      : 0}
+                  </Text>
+                  <Text style={styles.kpiLabel}>Volume (lb)</Text>
+                </View>
+
+                <View style={styles.kpiCard}>
+                  <View style={[styles.kpiIconBox, { backgroundColor: '#FFF7ED' }]}>
+                    <FontAwesome name="check-square-o" size={13} color="#E65100" />
+                  </View>
+                  <Text style={styles.kpiValue}>{lifetimeStats?.totalSets || 0}</Text>
+                  <Text style={styles.kpiLabel}>Total Sets</Text>
+                </View>
+              </View>
+
+              {/* 2. 3x/Week Consistency Goal Card */}
+              <View style={styles.overviewCard}>
+                <View style={styles.cardHeader}>
+                  <View style={styles.headerLeft}>
+                    <View style={[styles.cardIconBox, { backgroundColor: '#FFF3E0' }]}>
+                      <FontAwesome name="fire" size={14} color="#FF9500" />
+                    </View>
+                    <Text style={styles.overviewCardTitle}>Weekly Consistency</Text>
+                  </View>
+                  <View style={styles.streakBadge}>
+                    <Text style={styles.streakBadgeText}>
+                      {lifetimeStats?.currentStreakWeeks || 0} Week Streak 🔥
+                    </Text>
+                  </View>
+                </View>
+
+                <View style={styles.consistencyBody}>
+                  <Text style={styles.consistencySub}>
+                    Routine Goal: 3 full-body sessions / week
+                  </Text>
+
+                  <View style={styles.pipsRow}>
+                    {[1, 2, 3].map((num) => {
+                      const isDone = (lifetimeStats?.workoutsThisWeek || 0) >= num;
+                      return (
+                        <View key={num} style={[styles.pipItem, isDone && styles.pipItemDone]}>
+                          {isDone ? (
+                            <FontAwesome name="check" size={14} color="#fff" />
+                          ) : (
+                            <Text style={styles.pipText}>{num}</Text>
+                          )}
+                        </View>
+                      );
+                    })}
+                  </View>
+
+                  <Text style={styles.consistencyStatusText}>
+                    {(lifetimeStats?.workoutsThisWeek || 0) >= 3
+                      ? '🎉 3/3 target reached for this week! Excellent work!'
+                      : `${lifetimeStats?.workoutsThisWeek || 0} of 3 sessions completed this week.`}
+                  </Text>
+                </View>
+              </View>
+
+              {/* 3. Progressive Overload Radar */}
+              <View style={styles.overviewCard}>
+                <View style={styles.cardHeader}>
+                  <View style={styles.headerLeft}>
+                    <View style={[styles.cardIconBox, { backgroundColor: '#E8F5E9' }]}>
+                      <FontAwesome name="bolt" size={13} color="#2E7D32" />
+                    </View>
+                    <Text style={styles.overviewCardTitle}>Progression Radar</Text>
+                  </View>
+                  <Text style={styles.overloadHeaderHint}>Double Progression</Text>
+                </View>
+
+                {overloadStatuses.length === 0 ? (
+                  <Text style={styles.cardEmptyText}>No exercise data recorded yet.</Text>
+                ) : (
+                  <View style={styles.overloadList}>
+                    {overloadStatuses.map((item) => (
+                      <View key={item.exerciseId} style={styles.overloadItem}>
+                        <View style={{ flex: 1 }}>
+                          <Text style={styles.overloadName}>{item.exerciseName}</Text>
+                          <Text style={styles.overloadSub}>
+                            {item.currentWeightLb} lb • Target: {item.targetSets}×{item.repMax} reps
+                          </Text>
+                          {item.lastSessionReps.length > 0 && (
+                            <Text style={styles.overloadLastReps}>
+                              Last: {item.lastSessionReps.join(', ')} reps
+                            </Text>
+                          )}
+                        </View>
+
+                        {item.isReadyForIncrease ? (
+                          <View style={styles.overloadReadyBadge}>
+                            <FontAwesome
+                              name="arrow-up"
+                              size={10}
+                              color="#2E7D32"
+                              style={{ marginRight: 4 }}
+                            />
+                            <Text style={styles.overloadReadyText}>
+                              Ready → {item.suggestedWeightLb} lb
+                            </Text>
+                          </View>
+                        ) : (
+                          <View style={styles.overloadProgressBadge}>
+                            <Text style={styles.overloadProgressText}>In Progress</Text>
+                          </View>
+                        )}
+                      </View>
+                    ))}
+                  </View>
+                )}
+              </View>
+
+              {/* 4. Personal Records Trophy Case */}
+              <View style={styles.overviewCard}>
+                <View style={styles.cardHeader}>
+                  <View style={styles.headerLeft}>
+                    <View style={[styles.cardIconBox, { backgroundColor: '#FFF9C4' }]}>
+                      <FontAwesome name="trophy" size={14} color="#F57F17" />
+                    </View>
+                    <Text style={styles.overviewCardTitle}>Personal Records (PRs)</Text>
+                  </View>
+                </View>
+
+                {prs.length === 0 ? (
+                  <Text style={styles.cardEmptyText}>
+                    No PRs recorded yet. Complete workout sets to set records!
+                  </Text>
+                ) : (
+                  <View style={styles.prList}>
+                    {prs.map((pr) => (
+                      <View key={pr.exerciseId} style={styles.prCard}>
+                        <Text style={styles.prExerciseName}>{pr.exerciseName}</Text>
+
+                        <View style={styles.prStatsGrid}>
+                          <View style={styles.prStatBox}>
+                            <Text style={styles.prStatLabel}>MAX WEIGHT</Text>
+                            <Text style={styles.prStatValue}>{pr.heaviestWeightLb} lb</Text>
+                            <Text style={styles.prStatDate}>
+                              {pr.heaviestWeightDate ? pr.heaviestWeightDate.slice(5) : ''}
+                            </Text>
+                          </View>
+
+                          <View style={styles.prStatBox}>
+                            <Text style={styles.prStatLabel}>BEST 1RM</Text>
+                            <Text style={styles.prStatValue}>{pr.bestE1rm} lb</Text>
+                            <Text style={styles.prStatDate}>
+                              {pr.bestE1rmDate ? pr.bestE1rmDate.slice(5) : ''}
+                            </Text>
+                          </View>
+
+                          <View style={styles.prStatBox}>
+                            <Text style={styles.prStatLabel}>TOP SESSION</Text>
+                            <Text style={styles.prStatValue}>{pr.maxSessionVolume} lb</Text>
+                            <Text style={styles.prStatDate}>
+                              {pr.maxSessionVolumeDate ? pr.maxSessionVolumeDate.slice(5) : ''}
+                            </Text>
+                          </View>
+                        </View>
+                      </View>
+                    ))}
+                  </View>
+                )}
+              </View>
+            </>
+          )}
+        </ScrollView>
+      ) : viewMode === 'history' ? (
         <FlatList
           data={sessions}
           keyExtractor={(item) => item.id.toString()}
@@ -351,6 +626,30 @@ export default function StatsScreen() {
             )}
           </View>
 
+          {/* Time Range Filter Pills */}
+          <View style={styles.timeRangeRow}>
+            {TIME_RANGES.map((r) => {
+              const isSelected = timeRange === r.value;
+              return (
+                <TouchableOpacity
+                  key={r.value}
+                  style={[styles.timeRangeBtn, isSelected && styles.timeRangeBtnActive]}
+                  onPress={() => handleSelectTimeRange(r.value)}
+                  activeOpacity={0.7}
+                >
+                  <Text
+                    style={[
+                      styles.timeRangeText,
+                      isSelected && styles.timeRangeTextActive,
+                    ]}
+                  >
+                    {r.label}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+
           <ScrollView
             contentContainerStyle={styles.chartScroll}
             onScrollBeginDrag={() => {
@@ -526,11 +825,11 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: '#E5E5EA',
     justifyContent: 'center',
-    gap: 16,
+    gap: 8,
   },
   toggleBtn: {
-    paddingVertical: 8,
-    paddingHorizontal: 22,
+    paddingVertical: 7,
+    paddingHorizontal: 16,
     borderRadius: 20,
     backgroundColor: '#F2F2F7',
   },
@@ -538,11 +837,267 @@ const styles = StyleSheet.create({
     backgroundColor: '#007AFF',
   },
   toggleText: {
-    fontSize: 15,
+    fontSize: 14,
     color: '#3A3A3C',
     fontWeight: '600',
   },
   toggleTextActive: {
+    color: '#fff',
+    fontWeight: '700',
+  },
+  overviewScroll: {
+    padding: 14,
+    paddingBottom: 40,
+  },
+  kpiRow: {
+    flexDirection: 'row',
+    gap: 10,
+    marginBottom: 14,
+  },
+  kpiCard: {
+    flex: 1,
+    backgroundColor: '#fff',
+    borderRadius: 14,
+    padding: 12,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#E5E5EA',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.03,
+    shadowRadius: 2,
+    elevation: 1,
+  },
+  kpiIconBox: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 6,
+  },
+  kpiValue: {
+    fontSize: 17,
+    fontWeight: '800',
+    color: '#1C1C1E',
+  },
+  kpiLabel: {
+    fontSize: 11,
+    color: '#8E8E93',
+    fontWeight: '600',
+    marginTop: 2,
+  },
+  overviewCard: {
+    backgroundColor: '#fff',
+    borderRadius: 14,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: '#E5E5EA',
+    marginBottom: 14,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.03,
+    shadowRadius: 2,
+    elevation: 1,
+  },
+  cardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  headerLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  cardIconBox: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  overviewCardTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#1C1C1E',
+  },
+  streakBadge: {
+    backgroundColor: '#FFF3E0',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 8,
+  },
+  streakBadgeText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#E65100',
+  },
+  consistencyBody: {
+    alignItems: 'center',
+    paddingVertical: 4,
+  },
+  consistencySub: {
+    fontSize: 12,
+    color: '#8E8E93',
+    marginBottom: 12,
+  },
+  pipsRow: {
+    flexDirection: 'row',
+    gap: 16,
+    marginBottom: 12,
+  },
+  pipItem: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#F2F2F7',
+    borderWidth: 2,
+    borderColor: '#E5E5EA',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  pipItemDone: {
+    backgroundColor: '#34C759',
+    borderColor: '#34C759',
+  },
+  pipText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#8E8E93',
+  },
+  consistencyStatusText: {
+    fontSize: 12,
+    color: '#636366',
+    fontWeight: '500',
+  },
+  overloadHeaderHint: {
+    fontSize: 11,
+    color: '#8E8E93',
+    fontWeight: '600',
+  },
+  overloadList: {
+    gap: 8,
+  },
+  overloadItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F2F2F7',
+  },
+  overloadName: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#1C1C1E',
+  },
+  overloadSub: {
+    fontSize: 12,
+    color: '#8E8E93',
+    marginTop: 1,
+  },
+  overloadLastReps: {
+    fontSize: 11,
+    color: '#007AFF',
+    marginTop: 2,
+  },
+  overloadReadyBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#E8F5E9',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  overloadReadyText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#2E7D32',
+  },
+  overloadProgressBadge: {
+    backgroundColor: '#F2F2F7',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  overloadProgressText: {
+    fontSize: 11,
+    color: '#8E8E93',
+    fontWeight: '600',
+  },
+  prList: {
+    gap: 10,
+  },
+  prCard: {
+    backgroundColor: '#FAFAFC',
+    borderRadius: 10,
+    padding: 10,
+    borderWidth: 1,
+    borderColor: '#F2F2F7',
+  },
+  prExerciseName: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#1C1C1E',
+    marginBottom: 8,
+  },
+  prStatsGrid: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  prStatBox: {
+    flex: 1,
+  },
+  prStatLabel: {
+    fontSize: 9,
+    fontWeight: '700',
+    color: '#8E8E93',
+    letterSpacing: 0.3,
+    marginBottom: 2,
+  },
+  prStatValue: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#1C1C1E',
+  },
+  prStatDate: {
+    fontSize: 10,
+    color: '#8E8E93',
+    marginTop: 1,
+  },
+  cardEmptyText: {
+    fontSize: 13,
+    color: '#8E8E93',
+    fontStyle: 'italic',
+    textAlign: 'center',
+    paddingVertical: 12,
+  },
+  timeRangeRow: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 8,
+    marginVertical: 10,
+  },
+  timeRangeBtn: {
+    paddingVertical: 5,
+    paddingHorizontal: 14,
+    borderRadius: 14,
+    backgroundColor: '#fff',
+    borderWidth: 1,
+    borderColor: '#E5E5EA',
+  },
+  timeRangeBtnActive: {
+    backgroundColor: '#007AFF',
+    borderColor: '#007AFF',
+  },
+  timeRangeText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#636366',
+  },
+  timeRangeTextActive: {
     color: '#fff',
     fontWeight: '700',
   },

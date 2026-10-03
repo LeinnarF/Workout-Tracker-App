@@ -36,3 +36,38 @@ export interface WeeklyRepStat {
   hasWeightIncrease: boolean;
   weights: number[];
 }
+
+export type TimeRange = '4W' | '3M' | '1Y' | 'ALL';
+
+export interface ExercisePR {
+  exerciseId: number;
+  exerciseName: string;
+  heaviestWeightLb: number;
+  heaviestWeightDate: string;
+  bestE1rm: number;
+  bestE1rmDate: string;
+  maxSessionVolume: number;
+  maxSessionVolumeDate: string;
+}
+
+export interface LifetimeStats {
+  totalWorkouts: number;
+  totalSets: number;
+  totalVolumeLb: number;
+  currentStreakWeeks: number;
+  workoutsThisWeek: number;
+  weeklyTarget: number;
+}
+
+export interface ExerciseOverloadStatus {
+  exerciseId: number;
+  exerciseName: string;
+  isReadyForIncrease: boolean;
+  suggestedWeightLb: number;
+  currentWeightLb: number;
+  repMin: number;
+  repMax: number;
+  targetSets: number;
+  lastSessionReps: number[];
+}
+
