@@ -19,15 +19,20 @@ A fast, clean, and **100% offline-first** mobile workout tracker built with **Ex
   2. When all target sets hit the maximum rep ceiling, the app prompts a weight progression (e.g. `+5 lb`).
   3. One-tap acceptance updates the exercise default weight and tracks progression milestones.
 
-### 3. 📊 Visual Stats & History
+### 3. 📊 Advanced Analytics & Stats
+- **Three-Way View Switcher**: Quickly switch between **`Overview`**, **`Charts`**, and **`History`**.
+- **Overview & PRs Dashboard**:
+  - **Lifetime KPIs**: Total completed workouts, lifetime volume lifted (lb), and total sets logged.
+  - **3x/Week Consistency Goal Tracker**: Visual adherence indicators (`● ● ○`) tailored for a 3-day full-body routine, plus active weekly streak tracking (`🔥 X Week Streak`).
+  - **Progression Radar**: Instant status of every exercise in your routine, indicating which lifts are ready to add weight (`Ready → 55 lb`) vs currently in progress.
+  - **Personal Records (PRs) Trophy Case**: Automatically logs all-time heaviest weights lifted, best estimated 1RM, and peak single-session volume with dates.
+- **Deep-Dive Charts View**:
+  - **Time-Range Filters**: Filter charts by `4W`, `3M`, `1Y`, or `All Time`.
+  - **Exercise Dropdown**: Clean dropdown selector to filter charts by exercise.
+  - **Weekly Total Reps (Bar Graph)**: Tracks total weekly volume in reps for each exercise, dynamically turning **Green** on weeks where a weight increase occurred, and **Blue** on standard weeks.
+  - **Estimated 1RM Trends**: Tracks calculated 1-Rep Max progress over time using the Epley formula: $\text{Weight} \times (1 + \frac{\text{Reps}}{30})$.
+  - **Volume Progression**: Visualizes total workload (lb × reps) per workout.
 - **Expandable Workout History**: View every past session with full set breakdown (`Set 1: 50 lb × 4`), top weights lifted, and total volume.
-- **Exercise Dropdown**: Clean dropdown selector to filter charts by exercise.
-- **Weekly Total Reps (Bar Graph)**:
-  - Tracks total weekly volume in reps for each exercise.
-  - **Dynamic Color Highlighting**: Turns **Green** on weeks where a weight increase occurred (either set-to-set or compared to prior weeks), and **Blue** on standard weeks.
-  - Interactive week detail cards showing peak weights and rep counts.
-- **Estimated 1RM Trends**: Tracks calculated 1-Rep Max progress over time using the Epley formula: $\text{Weight} \times (1 + \frac{\text{Reps}}{30})$.
-- **Volume Progression**: Visualizes total workload (lb × reps) per workout.
 
 ### 4. ⏱️ Rest Timer
 - **Global Context**: Keeps running in the background while navigating across Log, Stats, and Convert tabs.
