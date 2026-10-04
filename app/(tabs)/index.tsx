@@ -359,6 +359,8 @@ export default function LogScreen() {
                 {
                   backgroundColor: colors.surface,
                   borderColor: colors.outline,
+                  borderBottomColor: colors.outline,
+                  borderBottomWidth: 1,
                 },
               ]}
             >
@@ -579,7 +581,12 @@ const styles = StyleSheet.create({
   exerciseItem: {
     width: '100%',
     borderWidth: 1,
+    borderTopWidth: 1,
+    borderBottomWidth: 1,
+    borderLeftWidth: 1,
+    borderRightWidth: 1,
     borderRadius: 0,
+    overflow: 'hidden',
   },
   exerciseHeaderRow: {
     flexDirection: 'row',
