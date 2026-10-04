@@ -40,6 +40,68 @@ const TIME_RANGES: { label: string; value: TimeRange }[] = [
   { label: 'ALL', value: 'ALL' },
 ];
 
+interface GroupedSetItem {
+  id: string;
+  exercise_name: string;
+  weight_lb: number;
+  reps: number;
+  setCount: number;
+}
+
+function groupSessionSets(sets: (SetRecord & { exercise_name: string })[]): GroupedSetItem[] {
+  const exerciseOrder: number[] = [];
+  const exerciseMap = new Map<
+    number,
+    {
+      exercise_name: string;
+      weightOrder: number[];
+      weights: Map<number, { weight_lb: number; reps: number; setCount: number }>;
+    }
+  >();
+
+  for (const set of sets) {
+    if (!exerciseMap.has(set.exercise_id)) {
+      exerciseOrder.push(set.exercise_id);
+      exerciseMap.set(set.exercise_id, {
+        exercise_name: set.exercise_name,
+        weightOrder: [],
+        weights: new Map(),
+      });
+    }
+
+    const exEntry = exerciseMap.get(set.exercise_id)!;
+    if (!exEntry.weights.has(set.weight_lb)) {
+      exEntry.weightOrder.push(set.weight_lb);
+      exEntry.weights.set(set.weight_lb, {
+        weight_lb: set.weight_lb,
+        reps: set.reps,
+        setCount: 1,
+      });
+    } else {
+      const wEntry = exEntry.weights.get(set.weight_lb)!;
+      wEntry.reps += set.reps;
+      wEntry.setCount += 1;
+    }
+  }
+
+  const result: GroupedSetItem[] = [];
+  for (const exId of exerciseOrder) {
+    const exEntry = exerciseMap.get(exId)!;
+    for (const w of exEntry.weightOrder) {
+      const wEntry = exEntry.weights.get(w)!;
+      result.push({
+        id: `grouped-${exId}-${w}`,
+        exercise_name: exEntry.exercise_name,
+        weight_lb: wEntry.weight_lb,
+        reps: wEntry.reps,
+        setCount: wEntry.setCount,
+      });
+    }
+  }
+
+  return result;
+}
+
 export default function StatsScreen() {
   const db = useSQLiteContext();
   const { colors } = useTheme();
@@ -702,18 +764,18 @@ export default function StatsScreen() {
                               </Text>
                             </View>
 
-                            {details.map((s, sIdx) => (
+                            {groupSessionSets(details).map((s, sIdx, arr) => (
                               <View
                                 key={s.id}
                                 style={[
                                   styles.historySetRow,
                                   {
                                     borderBottomColor: colors.outline,
-                                    borderBottomWidth: sIdx === details.length - 1 ? 0 : 1,
+                                    borderBottomWidth: sIdx === arr.length - 1 ? 0 : 1,
                                   },
                                 ]}
                               >
-                                <Text variant="label" color="primary" style={{ width: 120 }}>
+                                <Text variant="label" color="primary" style={{ width: 120 }} numberOfLines={1}>
                                   {s.exercise_name}
                                 </Text>
                                 <Text variant="numeral" color="primary" style={{ flex: 1, textAlign: 'right', paddingRight: 16 }}>
