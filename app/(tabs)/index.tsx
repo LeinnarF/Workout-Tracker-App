@@ -344,8 +344,8 @@ export default function LogScreen() {
       contentContainerStyle={styles.screenContent}
     >
       {/* Exercise Ticket List */}
-      <View style={[styles.listContainer, { borderColor: colors.outline }]}>
-        {exercises.map((ex, index) => {
+      <View style={styles.listContainer}>
+        {exercises.map((ex) => {
           const isExpanded = selectedExerciseId === ex.id;
           const exSets = sets.filter((s) => s.exercise_id === ex.id);
           const isMaxSetsReached = exSets.length >= ex.target_sets;
@@ -358,8 +358,7 @@ export default function LogScreen() {
                 styles.exerciseItem,
                 {
                   backgroundColor: colors.surface,
-                  borderBottomColor: colors.outline,
-                  borderBottomWidth: index === exercises.length - 1 && !isExpanded ? 0 : 1,
+                  borderColor: colors.outline,
                 },
               ]}
             >
@@ -420,7 +419,12 @@ export default function LogScreen() {
 
               {/* Expanded Ticket View */}
               {isExpanded && (
-                <View style={[styles.expandedTicket, { backgroundColor: colors.surface }]}>
+                <View
+                  style={[
+                    styles.expandedTicket,
+                    { backgroundColor: colors.surface, borderTopColor: colors.outline },
+                  ]}
+                >
                   {/* Overload badge banner */}
                   {hasOverload && (
                     <Pressable
@@ -570,11 +574,12 @@ const styles = StyleSheet.create({
     padding: 4,
   },
   listContainer: {
-    borderWidth: 1,
-    borderRadius: 0,
+    gap: 2,
   },
   exerciseItem: {
     width: '100%',
+    borderWidth: 1,
+    borderRadius: 0,
   },
   exerciseHeaderRow: {
     flexDirection: 'row',
