@@ -136,6 +136,7 @@ export function ExerciseModal({ visible, exercise, onClose, onSave }: Props) {
               {/* Target Sets & Increment */}
               <View style={styles.stepperRow}>
                 <Stepper
+                  compact
                   label="TARGET SETS"
                   value={targetSets}
                   onChange={setTargetSets}
@@ -143,6 +144,7 @@ export function ExerciseModal({ visible, exercise, onClose, onSave }: Props) {
                   min={1}
                 />
                 <Stepper
+                  compact
                   label="INCREMENT"
                   unit="LB"
                   value={incrementLb}
@@ -157,6 +159,7 @@ export function ExerciseModal({ visible, exercise, onClose, onSave }: Props) {
               {/* Rep Range */}
               <View style={styles.stepperRow}>
                 <Stepper
+                  compact
                   label="MIN REPS"
                   value={repMin}
                   onChange={setRepMin}
@@ -164,6 +167,7 @@ export function ExerciseModal({ visible, exercise, onClose, onSave }: Props) {
                   min={1}
                 />
                 <Stepper
+                  compact
                   label="MAX REPS"
                   value={repMax}
                   onChange={setRepMax}
@@ -177,6 +181,7 @@ export function ExerciseModal({ visible, exercise, onClose, onSave }: Props) {
               {/* Default Starting Weight */}
               <View style={styles.stepperRow}>
                 <Stepper
+                  compact
                   label="DEFAULT WEIGHT"
                   unit="LB"
                   value={defaultWeightLb}
@@ -239,7 +244,7 @@ const styles = StyleSheet.create({
     paddingBottom: 24,
   },
   ruleSpacing: {
-    marginVertical: 16,
+    marginVertical: 12,
   },
   stepperRow: {
     flexDirection: 'row',

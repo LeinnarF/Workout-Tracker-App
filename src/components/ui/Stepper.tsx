@@ -18,6 +18,7 @@ export interface StepperProps {
   max?: number;
   label: string;
   unit?: string;
+  compact?: boolean;
 }
 
 export function Stepper({
@@ -28,6 +29,7 @@ export function Stepper({
   max,
   label,
   unit,
+  compact = false,
 }: StepperProps) {
   const { colors, radius } = useTheme();
   const inputRef = useRef<TextInput>(null);
@@ -83,13 +85,16 @@ export function Stepper({
   const isMinusDisabled = min !== undefined && value <= min;
   const isPlusDisabled = max !== undefined && value >= max;
 
+  const buttonDimension = compact ? 40 : 48;
+  const iconSize = compact ? 16 : 20;
+
   return (
     <View style={styles.container}>
-      <Text variant="label" color="muted" style={styles.label}>
+      <Text variant={compact ? 'micro' : 'label'} color="muted" style={styles.label}>
         {fullLabel}
       </Text>
       <View style={styles.controlsRow}>
-        {/* Minus Button: Square 48dp, raised fill, 1px outline border, radius 2 */}
+        {/* Minus Button */}
         <Pressable
           onPressIn={() => !isMinusDisabled && startRepeating(-1)}
           onPressOut={stopRepeating}
@@ -97,6 +102,8 @@ export function Stepper({
           style={({ pressed }) => [
             styles.stepperButton,
             {
+              width: buttonDimension,
+              height: buttonDimension,
               backgroundColor: colors.raised,
               borderColor: isMinusDisabled ? colors.outline : pressed ? colors.text : colors.outline,
               borderRadius: radius.control,
@@ -104,7 +111,7 @@ export function Stepper({
             },
           ]}
         >
-          <Minus size={20} color={isMinusDisabled ? colors.textMuted : colors.text} strokeWidth={1.75} />
+          <Minus size={iconSize} color={isMinusDisabled ? colors.textMuted : colors.text} strokeWidth={1.75} />
         </Pressable>
 
         {/* Value Box: Boxed field, 1px outline, surface fill, radius 0 */}
@@ -113,6 +120,7 @@ export function Stepper({
           style={[
             styles.valueContainer,
             {
+              height: buttonDimension,
               backgroundColor: colors.surface,
               borderColor: colors.outline,
             },
@@ -122,6 +130,7 @@ export function Stepper({
             ref={inputRef}
             style={[
               styles.input,
+              compact && styles.compactInput,
               {
                 color: colors.text,
               },
@@ -135,7 +144,7 @@ export function Stepper({
           />
         </Pressable>
 
-        {/* Plus Button: Square 48dp, raised fill, 1px outline border, radius 2 */}
+        {/* Plus Button */}
         <Pressable
           onPressIn={() => !isPlusDisabled && startRepeating(1)}
           onPressOut={stopRepeating}
@@ -143,6 +152,8 @@ export function Stepper({
           style={({ pressed }) => [
             styles.stepperButton,
             {
+              width: buttonDimension,
+              height: buttonDimension,
               backgroundColor: colors.raised,
               borderColor: isPlusDisabled ? colors.outline : pressed ? colors.text : colors.outline,
               borderRadius: radius.control,
@@ -150,7 +161,7 @@ export function Stepper({
             },
           ]}
         >
-          <Plus size={20} color={isPlusDisabled ? colors.textMuted : colors.text} strokeWidth={1.75} />
+          <Plus size={iconSize} color={isPlusDisabled ? colors.textMuted : colors.text} strokeWidth={1.75} />
         </Pressable>
       </View>
     </View>
@@ -199,5 +210,9 @@ const styles = StyleSheet.create({
     includeFontPadding: false,
     paddingHorizontal: 4,
     paddingVertical: 0,
+  },
+  compactInput: {
+    fontSize: 18,
+    lineHeight: 22,
   },
 });

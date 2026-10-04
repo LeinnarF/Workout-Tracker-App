@@ -55,19 +55,19 @@ export const fonts = {
 export const typography = {
   display: {
     fontFamily: fonts.monoBold,
-    fontSize: 48,
+    fontSize: 70,
     lineHeight: 52,
     fontWeight: '700' as const,
   },
   numeral: {
     fontFamily: fonts.monoMedium,
-    fontSize: 28,
+    fontSize: 24,
     lineHeight: 32,
     fontWeight: '500' as const,
   },
   title: {
     fontFamily: fonts.monoMedium,
-    fontSize: 18,
+    fontSize: 16,
     lineHeight: 24,
     fontWeight: '500' as const,
     letterSpacing: 0.5,

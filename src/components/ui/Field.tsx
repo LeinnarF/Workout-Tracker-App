@@ -13,6 +13,7 @@ export interface FieldProps extends TextInputProps {
   label?: string;
   unit?: string;
   containerStyle?: ViewStyle;
+  variant?: 'numeral' | 'title' | 'body';
 }
 
 export function Field({
@@ -22,10 +23,23 @@ export function Field({
   style,
   onFocus,
   onBlur,
+  variant = 'title',
   ...rest
 }: FieldProps) {
   const { colors, border, typography } = useTheme();
   const [isFocused, setIsFocused] = useState(false);
+
+  const fontStyle =
+    variant === 'numeral'
+      ? typography.numeral
+      : variant === 'body'
+      ? typography.body
+      : {
+          fontFamily: 'IBMPlexMono_500Medium',
+          fontSize: 16,
+          lineHeight: 22,
+          fontWeight: '500' as const,
+        };
 
   return (
     <View style={[styles.container, containerStyle]}>
@@ -47,7 +61,7 @@ export function Field({
         <TextInput
           style={[
             styles.input,
-            typography.numeral,
+            fontStyle,
             {
               color: colors.text,
             },
