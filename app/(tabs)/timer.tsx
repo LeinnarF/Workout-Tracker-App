@@ -1,23 +1,18 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   StyleSheet,
-  Text,
   View,
-  SafeAreaView,
-  TouchableOpacity,
-  ScrollView,
   TextInput,
   KeyboardAvoidingView,
   Platform,
   Keyboard,
-  TouchableWithoutFeedback,
-  useWindowDimensions,
-  LayoutChangeEvent,
+  Pressable,
 } from 'react-native';
-import Svg, { Circle } from 'react-native-svg';
 import * as Haptics from 'expo-haptics';
-import FontAwesome from '@expo/vector-icons/FontAwesome';
+import { Play, Pause, Square } from 'lucide-react-native';
 import { useTimer } from '../../src/timer/TimerContext';
+import { useTheme } from '../../src/theme/useTheme';
+import { Screen, Text, Button } from '../../src/components/ui';
 
 const PRESETS = [
   { label: '30s', ms: 30 * 1000 },
@@ -27,6 +22,8 @@ const PRESETS = [
   { label: '2:30', ms: 150 * 1000 },
   { label: '3:00', ms: 180 * 1000 },
 ];
+
+const TOTAL_SEGMENTS = 16;
 
 export default function TimerScreen() {
   const {
@@ -39,40 +36,38 @@ export default function TimerScreen() {
     addTime,
   } = useTimer();
 
-  const { width: windowWidth } = useWindowDimensions();
-
-  // Dynamic dial size that expands to fill remaining space
-  const [dialSize, setDialSize] = useState(() => {
-    return Math.min(Math.max(220, windowWidth - 64), 320);
-  });
+  const { colors, radius, border, typography } = useTheme();
 
   const [selectedDurationMs, setSelectedDurationMs] = useState(90 * 1000); // 1:30 default
   const [customMin, setCustomMin] = useState('1');
   const [customSec, setCustomSec] = useState('30');
+  const [hasFinished, setHasFinished] = useState(false);
+  const prevRemainingRef = useRef(timeRemainingMs);
 
-  const onDialLayout = (event: LayoutChangeEvent) => {
-    const { width, height } = event.nativeEvent.layout;
-    if (width > 0 && height > 0) {
-      // Allow padding so the circle has breathing room within the remaining area
-      const available = Math.min(width - 24, height - 24);
-      const calculated = Math.max(200, Math.min(360, Math.floor(available)));
-      setDialSize((prev) => (Math.abs(prev - calculated) > 4 ? calculated : prev));
+  const isTimerActive = isRunning || timeRemainingMs > 0;
+
+  // Detect completion
+  useEffect(() => {
+    if (prevRemainingRef.current > 0 && timeRemainingMs === 0 && !isRunning && initialDurationMs > 0) {
+      setHasFinished(true);
+      const timer = setTimeout(() => {
+        setHasFinished(false);
+      }, 3000);
+      return () => clearTimeout(timer);
     }
-  };
+    prevRemainingRef.current = timeRemainingMs;
+  }, [timeRemainingMs, isRunning, initialDurationMs]);
 
   const formatTime = (ms: number) => {
     const totalSec = Math.floor(ms / 1000);
     const m = Math.floor(totalSec / 60);
     const s = totalSec % 60;
-    return `${m}:${s.toString().padStart(2, '0')}`;
+    return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
   };
 
-  const isTimerActive = isRunning || timeRemainingMs > 0;
-
-  // Preset click ONLY sets the timer; does not start it
   const handleSelectPreset = (ms: number) => {
     try {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     } catch {
       // ignore
     }
@@ -89,7 +84,6 @@ export default function TimerScreen() {
     setCustomSec(s.toString().padStart(2, '0'));
   };
 
-  // Custom MIN change automatically reflects to main timer circle
   const handleCustomMinChange = (text: string) => {
     const clean = text.replace(/[^0-9]/g, '').slice(0, 2);
     setCustomMin(clean);
@@ -110,7 +104,6 @@ export default function TimerScreen() {
     }
   };
 
-  // Custom SEC change automatically reflects to main timer circle
   const handleCustomSecChange = (text: string) => {
     const clean = text.replace(/[^0-9]/g, '').slice(0, 2);
     setCustomSec(clean);
@@ -133,7 +126,6 @@ export default function TimerScreen() {
     }
   };
 
-  // Add 30s button handler
   const handleAdd30s = () => {
     Keyboard.dismiss();
     try {
@@ -154,481 +146,341 @@ export default function TimerScreen() {
     }
   };
 
-  // Dial calculations
-  const strokeWidth = Math.round(dialSize * 0.04);
-  const radius = (dialSize - strokeWidth) / 2;
-  const circumference = 2 * Math.PI * radius;
+  const handleToggleTimer = () => {
+    Keyboard.dismiss();
+    try {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    } catch {
+      // ignore
+    }
 
-  const progress =
-    initialDurationMs > 0
-      ? Math.min(1, Math.max(0, timeRemainingMs / initialDurationMs))
-      : 1;
-  const strokeDashoffset = circumference * (1 - progress);
+    if (isRunning) {
+      pauseTimer(timeRemainingMs);
+    } else if (isTimerActive) {
+      startTimer(timeRemainingMs);
+    } else {
+      if (selectedDurationMs > 0) {
+        startTimer(selectedDurationMs);
+      }
+    }
+  };
+
+  const handleReset = () => {
+    if (!isTimerActive) return;
+    Keyboard.dismiss();
+    try {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    } catch {
+      // ignore
+    }
+    resetTimer();
+  };
 
   const displayMs = isTimerActive ? timeRemainingMs : selectedDurationMs;
 
+  // Segmented block bar calculation
+  const progressRatio = isTimerActive && initialDurationMs > 0
+    ? Math.min(1, Math.max(0, timeRemainingMs / initialDurationMs))
+    : 1;
+  const activeSegments = Math.round(progressRatio * TOTAL_SEGMENTS);
+
+  const statusLabel = isRunning
+    ? 'RESTING'
+    : isTimerActive
+    ? 'PAUSED'
+    : hasFinished
+    ? 'REST COMPLETE'
+    : 'READY';
+
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <Screen title="REST TIMER" subtitle={statusLabel}>
       <KeyboardAvoidingView
-        style={{ flex: 1 }}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        style={styles.keyboardContainer}
       >
-        <ScrollView
-          contentContainerStyle={styles.scrollContent}
-          showsVerticalScrollIndicator={false}
-          keyboardShouldPersistTaps="handled"
-          bounces={false}
+        {/* Main Timer Display Card (Fills with accentTint when finished) */}
+        <View
+          style={[
+            styles.timerCard,
+            {
+              backgroundColor: hasFinished ? colors.accentTint : colors.surface,
+              borderColor: hasFinished ? colors.accent : colors.outline,
+            },
+          ]}
         >
-          {/* Dial Section: Takes all remaining space on screen */}
-          <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
-            <View style={styles.dialSection} onLayout={onDialLayout}>
+          {/* Status Label */}
+          <View style={styles.statusRow}>
+            <Text
+              variant="label"
+              color={isRunning || hasFinished ? 'accent' : isTimerActive ? 'primary' : 'muted'}
+            >
+              {statusLabel}
+            </Text>
+          </View>
+
+          {/* Centered Remaining Time in DISPLAY typography (Fixed-width mono) */}
+          <Text
+            variant="display"
+            color={hasFinished ? 'accent' : 'primary'}
+            style={styles.timeText}
+          >
+            {formatTime(displayMs)}
+          </Text>
+
+          {/* Segmented Block Bar (Industrial progress meter) */}
+          <View style={styles.segmentBarContainer}>
+            {Array.from({ length: TOTAL_SEGMENTS }).map((_, idx) => {
+              const isActive = idx < activeSegments;
+              return (
+                <View
+                  key={idx}
+                  style={[
+                    styles.segmentBlock,
+                    {
+                      borderColor: colors.outline,
+                      backgroundColor: isActive
+                        ? colors.accent
+                        : colors.raised,
+                    },
+                  ]}
+                />
+              );
+            })}
+          </View>
+        </View>
+
+        {/* Transport Controls: RESET (Secondary), START/PAUSE (Primary), 30S (Secondary) */}
+        <View style={styles.controlsRow}>
+          {/* RESET BUTTON */}
+          <Pressable
+            onPress={handleReset}
+            disabled={!isTimerActive}
+            style={({ pressed }) => [
+              styles.secondarySquareBtn,
+              {
+                backgroundColor: colors.raised,
+                borderColor: pressed ? colors.text : colors.outline,
+                borderRadius: radius.control,
+                opacity: !isTimerActive ? 0.4 : 1,
+              },
+            ]}
+          >
+            <Square size={20} color={colors.text} strokeWidth={1.75} />
+          </Pressable>
+
+          {/* TOGGLE START / PAUSE / RESUME BUTTON */}
+          <View style={styles.primaryBtnWrapper}>
+            <Button
+              label={isRunning ? 'PAUSE' : isTimerActive ? 'RESUME' : 'START'}
+              variant="primary"
+              onPress={handleToggleTimer}
+              disabled={selectedDurationMs <= 0 && !isTimerActive}
+              icon={
+                isRunning ? (
+                  <Pause size={20} color={colors.onAccent} strokeWidth={2} />
+                ) : (
+                  <Play size={20} color={colors.onAccent} strokeWidth={2} />
+                )
+              }
+            />
+          </View>
+
+          {/* +30S EXTENSION BUTTON */}
+          <Pressable
+            onPress={handleAdd30s}
+            style={({ pressed }) => [
+              styles.secondarySquareBtn,
+              {
+                backgroundColor: colors.raised,
+                borderColor: pressed ? colors.text : colors.outline,
+                borderRadius: radius.control,
+              },
+            ]}
+          >
+            <Text variant="title" color="primary">
+              30S
+            </Text>
+          </Pressable>
+        </View>
+
+        {/* Custom Duration Section (Above Presets, fills horizontal width) */}
+        <View style={[styles.sectionCard, { backgroundColor: colors.surface, borderColor: colors.outline }]}>
+          <Text variant="label" color="muted" style={styles.sectionHeader}>
+            CUSTOM DURATION
+          </Text>
+          <View style={styles.customRow}>
+            {/* MIN Field */}
+            <View style={styles.customInputCol}>
+              <Text variant="micro" color="muted" style={styles.inputSublabel}>
+                MIN
+              </Text>
               <View
                 style={[
-                  styles.dialWrapper,
-                  { width: dialSize, height: dialSize },
+                  styles.fieldBox,
+                  {
+                    backgroundColor: colors.raised,
+                    borderColor: colors.outline,
+                  },
                 ]}
               >
-                <Svg width={dialSize} height={dialSize} style={styles.svgRing}>
-                  {/* Background Track */}
-                  <Circle
-                    cx={dialSize / 2}
-                    cy={dialSize / 2}
-                    r={radius}
-                    stroke="#E9EBF0"
-                    strokeWidth={strokeWidth}
-                    fill="transparent"
-                  />
-                  {/* Progress Arc */}
-                  <Circle
-                    cx={dialSize / 2}
-                    cy={dialSize / 2}
-                    r={radius}
-                    stroke={
-                      isRunning
-                        ? '#007AFF'
-                        : isTimerActive
-                        ? '#FF9500'
-                        : '#007AFF'
-                    }
-                    strokeWidth={strokeWidth}
-                    strokeDasharray={circumference}
-                    strokeDashoffset={isTimerActive ? strokeDashoffset : 0}
-                    strokeLinecap="round"
-                    fill="transparent"
-                    rotation="-90"
-                    origin={`${dialSize / 2}, ${dialSize / 2}`}
-                  />
-                </Svg>
-
-                {/* Inside dial text */}
-                <View style={styles.dialContent}>
-                  <View
-                    style={[
-                      styles.statusBadge,
-                      isRunning
-                        ? styles.statusBadgeRunning
-                        : isTimerActive
-                        ? styles.statusBadgePaused
-                        : styles.statusBadgeReady,
-                    ]}
-                  >
-                    <View
-                      style={[
-                        styles.statusDot,
-                        isRunning
-                          ? styles.statusDotRunning
-                          : isTimerActive
-                          ? styles.statusDotPaused
-                          : styles.statusDotReady,
-                      ]}
-                    />
-                    <Text
-                      style={[
-                        styles.statusText,
-                        isRunning
-                          ? styles.statusTextRunning
-                          : isTimerActive
-                          ? styles.statusTextPaused
-                          : styles.statusTextReady,
-                      ]}
-                    >
-                      {isRunning ? 'RESTING' : isTimerActive ? 'PAUSED' : 'READY'}
-                    </Text>
-                  </View>
-
-                  <Text
-                    style={[
-                      styles.timeDisplay,
-                      { fontSize: Math.max(46, Math.round(dialSize * 0.22)) },
-                    ]}
-                  >
-                    {formatTime(displayMs)}
-                  </Text>
-                </View>
-              </View>
-            </View>
-          </TouchableWithoutFeedback>
-
-          {/* Bottom Controls and Settings Section */}
-          <View style={styles.bottomSection}>
-            {/* Controls Row: Square (Stop/Reset), Triangle/Pause (Play/Pause), and 30s (+30s) */}
-            <View style={styles.controlsRow}>
-              {/* Left: Square Button (Stop / Reset) */}
-              <TouchableOpacity
-                style={[
-                  styles.controlBtnSquare,
-                  !isTimerActive && styles.controlBtnDisabled,
-                ]}
-                onPress={() => {
-                  if (isTimerActive) {
-                    Keyboard.dismiss();
-                    try {
-                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                    } catch {
-                      // ignore
-                    }
-                    resetTimer();
-                  }
-                }}
-                disabled={!isTimerActive}
-                activeOpacity={0.7}
-              >
-                <FontAwesome
-                  name="stop"
-                  size={16}
-                  color={isTimerActive ? '#FF3B30' : '#C7C7CC'}
-                />
-              </TouchableOpacity>
-
-              {/* Center: Triangle / Pause Button (Play / Pause / Resume) */}
-              {isRunning ? (
-                <TouchableOpacity
-                  style={[styles.primaryActionBtn, styles.pauseActionBtn]}
-                  onPress={() => {
-                    Keyboard.dismiss();
-                    try {
-                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                    } catch {
-                      // ignore
-                    }
-                    pauseTimer(timeRemainingMs);
-                  }}
-                  activeOpacity={0.8}
-                >
-                  <FontAwesome name="pause" size={20} color="#fff" />
-                </TouchableOpacity>
-              ) : isTimerActive ? (
-                <TouchableOpacity
-                  style={[styles.primaryActionBtn, styles.resumeActionBtn]}
-                  onPress={() => {
-                    Keyboard.dismiss();
-                    try {
-                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                    } catch {
-                      // ignore
-                    }
-                    startTimer(timeRemainingMs);
-                  }}
-                  activeOpacity={0.8}
-                >
-                  <FontAwesome
-                    name="play"
-                    size={20}
-                    color="#fff"
-                    style={{ marginLeft: 3 }}
-                  />
-                </TouchableOpacity>
-              ) : (
-                <TouchableOpacity
+                <TextInput
                   style={[
-                    styles.primaryActionBtn,
-                    styles.startActionBtn,
-                    selectedDurationMs <= 0 && styles.controlBtnDisabled,
+                    styles.numericInput,
+                    typography.numeral,
+                    { color: colors.text },
                   ]}
-                  onPress={() => {
-                    if (selectedDurationMs <= 0) return;
-                    Keyboard.dismiss();
-                    try {
-                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                    } catch {
-                      // ignore
-                    }
-                    startTimer(selectedDurationMs);
-                  }}
-                  disabled={selectedDurationMs <= 0}
-                  activeOpacity={0.8}
-                >
-                  <FontAwesome
-                    name="play"
-                    size={22}
-                    color="#fff"
-                    style={{ marginLeft: 3 }}
-                  />
-                </TouchableOpacity>
-              )}
-
-              {/* Right: 30s Button (+30s timer) */}
-              <TouchableOpacity
-                style={styles.controlBtn30s}
-                onPress={handleAdd30s}
-                activeOpacity={0.7}
-              >
-                <Text style={styles.controlBtn30sText}>30s</Text>
-              </TouchableOpacity>
-            </View>
-
-            {/* Custom Duration Card (Above Preset, automatically reflects to Circle) */}
-            <View style={styles.card}>
-              <View style={styles.customRow}>
-                <View style={styles.customInputGroup}>
-                  <Text style={styles.customInputLabel}>MIN</Text>
-                  <TextInput
-                    style={styles.customInput}
-                    textAlign="center"
-                    textAlignVertical="center"
-                    keyboardType="number-pad"
-                    value={customMin}
-                    onChangeText={handleCustomMinChange}
-                    onBlur={handleCustomMinBlur}
-                    selectTextOnFocus
-                    maxLength={2}
-                    returnKeyType="done"
-                    onSubmitEditing={Keyboard.dismiss}
-                  />
-                </View>
-
-                <Text style={styles.customColon}>:</Text>
-
-                <View style={styles.customInputGroup}>
-                  <Text style={styles.customInputLabel}>SEC</Text>
-                  <TextInput
-                    style={styles.customInput}
-                    textAlign="center"
-                    textAlignVertical="center"
-                    keyboardType="number-pad"
-                    value={customSec}
-                    onChangeText={handleCustomSecChange}
-                    onBlur={handleCustomSecBlur}
-                    selectTextOnFocus
-                    maxLength={2}
-                    returnKeyType="done"
-                    onSubmitEditing={Keyboard.dismiss}
-                  />
-                </View>
+                  textAlign="center"
+                  textAlignVertical="center"
+                  keyboardType="number-pad"
+                  value={customMin}
+                  onChangeText={handleCustomMinChange}
+                  onBlur={handleCustomMinBlur}
+                  selectTextOnFocus
+                  maxLength={2}
+                  returnKeyType="done"
+                  onSubmitEditing={Keyboard.dismiss}
+                />
               </View>
             </View>
 
-            {/* Quick Presets Card */}
-            <View style={styles.card}>
-              <View style={styles.presetsGrid}>
-                {PRESETS.map((p) => {
-                  const isSelected =
-                    (isTimerActive && initialDurationMs === p.ms) ||
-                    (!isTimerActive && selectedDurationMs === p.ms);
-                  return (
-                    <TouchableOpacity
-                      key={p.label}
-                      style={[
-                        styles.presetBtn,
-                        isSelected && styles.presetBtnActive,
-                      ]}
-                      onPress={() => handleSelectPreset(p.ms)}
-                      activeOpacity={0.7}
-                    >
-                      <Text
-                        style={[
-                          styles.presetBtnText,
-                          isSelected && styles.presetBtnTextActive,
-                        ]}
-                      >
-                        {p.label}
-                      </Text>
-                    </TouchableOpacity>
-                  );
-                })}
+            <Text variant="title" color="muted" style={styles.colonText}>
+              :
+            </Text>
+
+            {/* SEC Field */}
+            <View style={styles.customInputCol}>
+              <Text variant="micro" color="muted" style={styles.inputSublabel}>
+                SEC
+              </Text>
+              <View
+                style={[
+                  styles.fieldBox,
+                  {
+                    backgroundColor: colors.raised,
+                    borderColor: colors.outline,
+                  },
+                ]}
+              >
+                <TextInput
+                  style={[
+                    styles.numericInput,
+                    typography.numeral,
+                    { color: colors.text },
+                  ]}
+                  textAlign="center"
+                  textAlignVertical="center"
+                  keyboardType="number-pad"
+                  value={customSec}
+                  onChangeText={handleCustomSecChange}
+                  onBlur={handleCustomSecBlur}
+                  selectTextOnFocus
+                  maxLength={2}
+                  returnKeyType="done"
+                  onSubmitEditing={Keyboard.dismiss}
+                />
               </View>
             </View>
           </View>
-        </ScrollView>
+        </View>
+
+        {/* Quick Presets Section (Row of Square Chips) */}
+        <View style={[styles.sectionCard, { backgroundColor: colors.surface, borderColor: colors.outline }]}>
+          <Text variant="label" color="muted" style={styles.sectionHeader}>
+            QUICK PRESETS
+          </Text>
+          <View style={styles.presetsGrid}>
+            {PRESETS.map((p) => {
+              const isSelected =
+                (isTimerActive && initialDurationMs === p.ms) ||
+                (!isTimerActive && selectedDurationMs === p.ms);
+
+              return (
+                <Pressable
+                  key={p.label}
+                  onPress={() => handleSelectPreset(p.ms)}
+                  style={[
+                    styles.presetChip,
+                    {
+                      backgroundColor: isSelected ? colors.accentTint : colors.raised,
+                      borderColor: isSelected ? colors.accent : colors.outline,
+                      borderRadius: radius.control,
+                      borderWidth: isSelected ? border.focus : border.width,
+                    },
+                  ]}
+                >
+                  <Text
+                    variant="label"
+                    color={isSelected ? 'accent' : 'primary'}
+                  >
+                    {p.label}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
+        </View>
       </KeyboardAvoidingView>
-    </SafeAreaView>
+    </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: '#F8F9FA',
-  },
-  scrollContent: {
-    flexGrow: 1,
-    paddingHorizontal: 20,
-    paddingTop: 10,
-    paddingBottom: 24,
-    justifyContent: 'space-between',
-  },
-  dialSection: {
-    flex: 1,
-    minHeight: 220,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 12,
-  },
-  dialWrapper: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    position: 'relative',
-  },
-  svgRing: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-  },
-  dialContent: {
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  statusBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-    borderRadius: 12,
-    marginBottom: 6,
-    gap: 6,
-  },
-  statusBadgeRunning: {
-    backgroundColor: '#EFF6FF',
-  },
-  statusBadgePaused: {
-    backgroundColor: '#FFF7ED',
-  },
-  statusBadgeReady: {
-    backgroundColor: '#F2F2F7',
-  },
-  statusDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-  },
-  statusDotRunning: {
-    backgroundColor: '#007AFF',
-  },
-  statusDotPaused: {
-    backgroundColor: '#FF9500',
-  },
-  statusDotReady: {
-    backgroundColor: '#8E8E93',
-  },
-  statusText: {
-    fontSize: 11,
-    fontWeight: '700',
-    letterSpacing: 0.5,
-  },
-  statusTextRunning: {
-    color: '#007AFF',
-  },
-  statusTextPaused: {
-    color: '#FF9500',
-  },
-  statusTextReady: {
-    color: '#8E8E93',
-  },
-  timeDisplay: {
-    fontWeight: '800',
-    fontVariant: ['tabular-nums'],
-    color: '#1C1C1E',
-    letterSpacing: -1,
-  },
-  bottomSection: {
+  keyboardContainer: {
     width: '100%',
+  },
+  timerCard: {
+    borderWidth: 1,
+    borderRadius: 0,
+    padding: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 20,
+  },
+  statusRow: {
+    marginBottom: 8,
+  },
+  timeText: {
+    marginVertical: 12,
+    textAlign: 'center',
+  },
+  segmentBarContainer: {
+    flexDirection: 'row',
+    width: '100%',
+    height: 18,
+    gap: 3,
+    marginTop: 16,
+  },
+  segmentBlock: {
+    flex: 1,
+    height: '100%',
+    borderWidth: 1,
+    borderRadius: 0,
   },
   controlsRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    gap: 24,
-    marginBottom: 16,
+    gap: 12,
+    marginBottom: 20,
     width: '100%',
   },
-  controlBtnSquare: {
-    width: 58,
-    height: 58,
-    borderRadius: 29,
-    backgroundColor: '#fff',
-    borderWidth: 1.5,
-    borderColor: '#E5E5EA',
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 3,
-    elevation: 2,
-  },
-  controlBtnDisabled: {
-    opacity: 0.45,
-    borderColor: '#F2F2F7',
-    elevation: 0,
-    shadowOpacity: 0,
-  },
-  primaryActionBtn: {
-    width: 58,
-    height: 58,
-    borderRadius: 29,
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.16,
-    shadowRadius: 5,
-    elevation: 3,
-  },
-  startActionBtn: {
-    backgroundColor: '#007AFF',
-    shadowColor: '#007AFF',
-  },
-  pauseActionBtn: {
-    backgroundColor: '#FF9500',
-    shadowColor: '#FF9500',
-  },
-  resumeActionBtn: {
-    backgroundColor: '#34C759',
-    shadowColor: '#34C759',
-  },
-  controlBtn30s: {
-    width: 58,
-    height: 58,
-    borderRadius: 29,
-    backgroundColor: '#fff',
-    borderWidth: 1.5,
-    borderColor: '#E5E5EA',
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 3,
-    elevation: 2,
-  },
-  controlBtn30sText: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: '#007AFF',
-  },
-  card: {
-    backgroundColor: '#fff',
-    borderRadius: 16,
+  secondarySquareBtn: {
+    width: 56,
+    height: 56,
     borderWidth: 1,
-    borderColor: '#E5E5EA',
-    padding: 14,
-    width: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  primaryBtnWrapper: {
+    flex: 1,
+  },
+  sectionCard: {
+    borderWidth: 1,
+    borderRadius: 0,
+    padding: 16,
+    marginBottom: 16,
+  },
+  sectionHeader: {
     marginBottom: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.03,
-    shadowRadius: 2,
-    elevation: 1,
   },
   customRow: {
     flexDirection: 'row',
@@ -636,66 +488,41 @@ const styles = StyleSheet.create({
     width: '100%',
     gap: 12,
   },
-  customInputGroup: {
+  customInputCol: {
     flex: 1,
+  },
+  inputSublabel: {
+    marginBottom: 4,
+    textAlign: 'center',
+  },
+  fieldBox: {
+    height: 48,
+    borderWidth: 1,
+    borderRadius: 0,
+    justifyContent: 'center',
     alignItems: 'center',
   },
-  customInputLabel: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#8E8E93',
-    marginBottom: 4,
-    letterSpacing: 0.5,
-  },
-  customInput: {
+  numericInput: {
     width: '100%',
-    height: 46,
-    backgroundColor: '#F2F2F7',
-    borderRadius: 12,
+    height: '100%',
     textAlign: 'center',
-    textAlignVertical: 'center',
-    paddingHorizontal: 0,
-    paddingVertical: 0,
+    fontVariant: ['tabular-nums'],
     includeFontPadding: false,
-    fontSize: 22,
-    fontWeight: '700',
-    color: '#1C1C1E',
-    borderWidth: 1,
-    borderColor: '#E5E5EA',
+    padding: 0,
   },
-  customColon: {
-    fontSize: 24,
-    fontWeight: '700',
-    color: '#8E8E93',
-    marginTop: 16,
+  colonText: {
+    marginTop: 14,
   },
   presetsGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 10,
+    gap: 8,
     justifyContent: 'space-between',
   },
-  presetBtn: {
+  presetChip: {
     width: '31%',
-    backgroundColor: '#F2F2F7',
-    paddingVertical: 12,
-    borderRadius: 12,
+    height: 44,
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: 'transparent',
-  },
-  presetBtnActive: {
-    backgroundColor: '#007AFF',
-    borderColor: '#007AFF',
-  },
-  presetBtnText: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: '#1C1C1E',
-  },
-  presetBtnTextActive: {
-    color: '#fff',
-    fontWeight: '700',
   },
 });

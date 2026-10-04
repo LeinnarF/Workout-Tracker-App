@@ -1,30 +1,30 @@
 import React, { useState } from 'react';
 import {
   StyleSheet,
-  Text,
   View,
   TextInput,
-  SafeAreaView,
   KeyboardAvoidingView,
   Platform,
-  ScrollView,
-  TouchableOpacity,
+  Pressable,
+  Alert,
 } from 'react-native';
 import * as Haptics from 'expo-haptics';
-import FontAwesome from '@expo/vector-icons/FontAwesome';
+import * as Clipboard from 'expo-clipboard';
+import { ArrowUpDown, Copy } from 'lucide-react-native';
+
 import { lbToKg, kgToLb } from '../../src/logic/conversions';
+import { useTheme } from '../../src/theme/useTheme';
+import { Screen, Text, Rule } from '../../src/components/ui';
 
 const BARBELL_MILESTONES = [
-  { lb: 45, label: 'Empty Bar' },
-  { lb: 135, label: '1 Plate / side' },
-  { lb: 185, label: '1 Plate + 25' },
-  { lb: 225, label: '2 Plates / side' },
-  { lb: 275, label: '2 Plates + 25' },
-  { lb: 315, label: '3 Plates / side' },
-  { lb: 405, label: '4 Plates / side' },
+  { lb: 45, label: 'EMPTY BAR' },
+  { lb: 135, label: '1 PLATE' },
+  { lb: 185, label: '1 PL + 25' },
+  { lb: 225, label: '2 PLATES' },
+  { lb: 275, label: '2 PL + 25' },
+  { lb: 315, label: '3 PLATES' },
+  { lb: 405, label: '4 PLATES' },
 ];
-
-const DUMBBELL_PRESETS = [15, 25, 35, 50, 70, 100];
 
 function getPlateBreakdown(totalLb: number): {
   bar: number;
@@ -52,537 +52,385 @@ function getPlateBreakdown(totalLb: number): {
 }
 
 export default function ConvertScreen() {
-  const [lbStr, setLbStr] = useState('');
-  const [kgStr, setKgStr] = useState('');
+  const { colors, radius, typography } = useTheme();
 
-  const handleLbChange = (text: string) => {
-    setLbStr(text);
-    const val = parseFloat(text);
-    if (!isNaN(val)) {
-      setKgStr(lbToKg(val).toString());
+  const [primaryUnit, setPrimaryUnit] = useState<'LB' | 'KG'>('LB');
+  const [val1, setVal1] = useState('');
+  const [val2, setVal2] = useState('');
+
+  const handleVal1Change = (text: string) => {
+    setVal1(text);
+    const num = parseFloat(text);
+    if (!isNaN(num)) {
+      if (primaryUnit === 'LB') {
+        setVal2(lbToKg(num).toString());
+      } else {
+        setVal2(kgToLb(num).toString());
+      }
     } else {
-      setKgStr('');
+      setVal2('');
     }
   };
 
-  const handleKgChange = (text: string) => {
-    setKgStr(text);
-    const val = parseFloat(text);
-    if (!isNaN(val)) {
-      setLbStr(kgToLb(val).toString());
+  const handleVal2Change = (text: string) => {
+    setVal2(text);
+    const num = parseFloat(text);
+    if (!isNaN(num)) {
+      if (primaryUnit === 'LB') {
+        setVal1(kgToLb(num).toString());
+      } else {
+        setVal1(lbToKg(num).toString());
+      }
     } else {
-      setLbStr('');
+      setVal1('');
     }
   };
 
-  const handleClear = () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    setLbStr('');
-    setKgStr('');
+  const handleSwap = () => {
+    try {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    } catch {
+      // ignore
+    }
+    const nextUnit = primaryUnit === 'LB' ? 'KG' : 'LB';
+    setPrimaryUnit(nextUnit);
+    // Swap values
+    const temp = val1;
+    setVal1(val2);
+    setVal2(temp);
   };
 
-  const handleSelectWeight = (lbVal: number) => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    handleLbChange(lbVal.toString());
+  const handleCopyResult = async () => {
+    if (!val2) return;
+    try {
+      await Clipboard.setStringAsync(val2);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      Alert.alert('COPIED', `${val2} ${primaryUnit === 'LB' ? 'KG' : 'LB'} copied to clipboard.`);
+    } catch {
+      // fallback
+    }
   };
 
-  const numericLb = parseFloat(lbStr);
-  const plateInfo = !isNaN(numericLb) && numericLb >= 45 ? getPlateBreakdown(numericLb) : null;
+  const handleSelectMilestone = (lbVal: number) => {
+    try {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    } catch {
+      // ignore
+    }
+    if (primaryUnit === 'LB') {
+      handleVal1Change(lbVal.toString());
+    } else {
+      handleVal2Change(lbVal.toString());
+    }
+  };
+
+  const currentLb = primaryUnit === 'LB' ? parseFloat(val1) : parseFloat(val2);
+  const plateInfo = !isNaN(currentLb) && currentLb >= 45 ? getPlateBreakdown(currentLb) : null;
+
+  const unit1 = primaryUnit;
+  const unit2 = primaryUnit === 'LB' ? 'KG' : 'LB';
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <Screen title="CONVERT">
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        style={styles.container}
+        style={styles.keyboardContainer}
       >
-        <ScrollView
-          contentContainerStyle={styles.scroll}
-          showsVerticalScrollIndicator={false}
-          keyboardShouldPersistTaps="handled"
-        >
-          {/* Main Converter Card */}
-          <View style={styles.card}>
-            <View style={styles.cardHeader}>
-              <View style={styles.headerLeft}>
-                <View style={styles.cardIconBox}>
-                  <FontAwesome name="exchange" size={13} color="#007AFF" />
-                </View>
-                <Text style={styles.cardTitle}>Weight Converter</Text>
+        {/* Converter Card */}
+        <View style={[styles.card, { borderColor: colors.outline, backgroundColor: colors.surface }]}>
+          {/* Top Field */}
+          <View style={styles.fieldSection}>
+            <Text variant="label" color="muted" style={styles.fieldLabel}>
+              INPUT ({unit1})
+            </Text>
+            <View
+              style={[
+                styles.fieldWrapper,
+                {
+                  backgroundColor: colors.raised,
+                  borderColor: colors.outline,
+                },
+              ]}
+            >
+              <TextInput
+                style={[
+                  styles.numericInput,
+                  typography.numeral,
+                  { color: colors.text },
+                ]}
+                keyboardType="decimal-pad"
+                value={val1}
+                onChangeText={handleVal1Change}
+                placeholder="0"
+                placeholderTextColor={colors.textMuted}
+              />
+              <View style={[styles.unitTag, { backgroundColor: colors.surface, borderColor: colors.outline }]}>
+                <Text variant="label" color="primary">
+                  {unit1}
+                </Text>
               </View>
-              {(lbStr !== '' || kgStr !== '') && (
-                <TouchableOpacity onPress={handleClear} style={styles.clearBtn} activeOpacity={0.7}>
-                  <Text style={styles.clearBtnText}>Clear</Text>
-                </TouchableOpacity>
-              )}
-            </View>
-
-            {/* Pounds Input Field */}
-            <View style={styles.inputBox}>
-              <View style={styles.inputLeft}>
-                <Text style={styles.inputSubLabel}>POUNDS</Text>
-                <TextInput
-                  style={styles.numericInput}
-                  keyboardType="decimal-pad"
-                  value={lbStr}
-                  onChangeText={handleLbChange}
-                  placeholder="0"
-                  placeholderTextColor="#C7C7CC"
-                />
-              </View>
-              <View style={styles.unitBadgeLb}>
-                <Text style={styles.unitBadgeLbText}>LB</Text>
-              </View>
-            </View>
-
-            {/* Divider with swap icon */}
-            <View style={styles.dividerRow}>
-              <View style={styles.dividerLine} />
-              <View style={styles.swapCircle}>
-                <FontAwesome name="arrows-v" size={12} color="#8E8E93" />
-              </View>
-              <View style={styles.dividerLine} />
-            </View>
-
-            {/* Kilograms Input Field */}
-            <View style={styles.inputBox}>
-              <View style={styles.inputLeft}>
-                <Text style={styles.inputSubLabel}>KILOGRAMS</Text>
-                <TextInput
-                  style={styles.numericInput}
-                  keyboardType="decimal-pad"
-                  value={kgStr}
-                  onChangeText={handleKgChange}
-                  placeholder="0"
-                  placeholderTextColor="#C7C7CC"
-                />
-              </View>
-              <View style={styles.unitBadgeKg}>
-                <Text style={styles.unitBadgeKgText}>KG</Text>
-              </View>
-            </View>
-
-            {/* Quick conversion ratio footer */}
-            <View style={styles.conversionFooter}>
-              <Text style={styles.conversionFormula}>1 lb ≈ 0.4536 kg • 1 kg ≈ 2.2046 lb</Text>
             </View>
           </View>
 
-          {/* Barbell Plate Breakdown Card (Appears when >= 45 lb) */}
-          {plateInfo && (
-            <View style={styles.plateCard}>
-              <View style={styles.cardHeader}>
-                <View style={styles.headerLeft}>
-                  <View style={[styles.cardIconBox, { backgroundColor: '#E8F5E9' }]}>
-                    <FontAwesome name="circle-o" size={13} color="#2E7D32" />
-                  </View>
-                  <Text style={styles.cardTitle}>Plate Calculator (45 lb Bar)</Text>
-                </View>
-                <Text style={styles.perSideLoadText}>
-                  {plateInfo.perSideLoad} lb / side
+          {/* Swap Button: Square 48dp, raised fill, 1px outline border */}
+          <View style={styles.swapRow}>
+            <Rule style={{ flex: 1 }} />
+            <Pressable
+              onPress={handleSwap}
+              style={({ pressed }) => [
+                styles.swapButton,
+                {
+                  backgroundColor: colors.raised,
+                  borderColor: pressed ? colors.text : colors.outline,
+                  borderRadius: radius.control,
+                },
+              ]}
+            >
+              <ArrowUpDown size={18} color={colors.text} strokeWidth={1.75} />
+            </Pressable>
+            <Rule style={{ flex: 1 }} />
+          </View>
+
+          {/* Bottom Result Field with Copy button */}
+          <View style={styles.fieldSection}>
+            <View style={styles.resultLabelRow}>
+              <Text variant="label" color="muted">
+                RESULT ({unit2})
+              </Text>
+              {val2 !== '' && (
+                <Pressable
+                  onPress={handleCopyResult}
+                  hitSlop={8}
+                  style={styles.copyAction}
+                >
+                  <Copy size={14} color={colors.accent} strokeWidth={1.75} />
+                  <Text variant="micro" color="accent" style={{ marginLeft: 4 }}>
+                    COPY
+                  </Text>
+                </Pressable>
+              )}
+            </View>
+
+            <View
+              style={[
+                styles.fieldWrapper,
+                {
+                  backgroundColor: colors.raised,
+                  borderColor: colors.outline,
+                },
+              ]}
+            >
+              <TextInput
+                style={[
+                  styles.numericInput,
+                  typography.numeral,
+                  { color: colors.text },
+                ]}
+                keyboardType="decimal-pad"
+                value={val2}
+                onChangeText={handleVal2Change}
+                placeholder="0"
+                placeholderTextColor={colors.textMuted}
+              />
+              <View style={[styles.unitTag, { backgroundColor: colors.surface, borderColor: colors.outline }]}>
+                <Text variant="label" color="primary">
+                  {unit2}
+                </Text>
+              </View>
+            </View>
+          </View>
+        </View>
+
+        {/* Barbell Plate Spec Sheet */}
+        <View style={[styles.card, { borderColor: colors.outline, backgroundColor: colors.surface }]}>
+          <Text variant="label" color="primary" style={styles.specTitle}>
+            BARBELL PLATE LOAD (45 LB BAR)
+          </Text>
+
+          {plateInfo ? (
+            <View style={styles.plateTable}>
+              <View style={[styles.plateRowHeader, { borderBottomColor: colors.outline }]}>
+                <Text variant="label" color="muted">
+                  EACH SIDE LOAD
+                </Text>
+                <Text variant="numeral" color="primary">
+                  {plateInfo.perSideLoad} LB
                 </Text>
               </View>
 
               {plateInfo.perSide.length === 0 ? (
-                <Text style={styles.emptyBarText}>
-                  Empty Olympic Barbell (No extra plates needed)
+                <Text variant="label" color="muted" style={styles.emptyPlateText}>
+                  EMPTY 45 LB BAR (NO PLATES REQUIRED)
                 </Text>
               ) : (
-                <View style={styles.platesGrid}>
-                  {plateInfo.perSide.map((p) => (
-                    <View key={p.weight} style={styles.plateChip}>
-                      <Text style={styles.plateChipCount}>{p.count}×</Text>
-                      <Text style={styles.plateChipWeight}>{p.weight} lb</Text>
-                    </View>
-                  ))}
-                  {plateInfo.remainder > 0 && (
-                    <Text style={styles.plateRemainderText}>
-                      +{plateInfo.remainder} lb remainder
+                plateInfo.perSide.map((p) => (
+                  <View
+                    key={p.weight}
+                    style={[
+                      styles.plateItemRow,
+                      { borderBottomColor: colors.outline },
+                    ]}
+                  >
+                    <Text variant="title" color="primary">
+                      {p.weight} LB PLATE
                     </Text>
-                  )}
+                    <Text variant="numeral" color="primary">
+                      × {p.count}
+                    </Text>
+                  </View>
+                ))
+              )}
+
+              {plateInfo.remainder > 0 && (
+                <View style={styles.remainderRow}>
+                  <Text variant="micro" color="muted">
+                    UNLOADABLE FRACTION: {plateInfo.remainder} LB PER SIDE
+                  </Text>
                 </View>
               )}
             </View>
+          ) : (
+            <Text variant="label" color="muted" style={styles.emptyPlateText}>
+              ENTER 45 LB OR HIGHER TO CALCULATE PLATES PER SIDE.
+            </Text>
           )}
+        </View>
 
-          {/* Quick Barbell Milestones Card */}
-          <View style={styles.card}>
-            <View style={styles.cardHeader}>
-              <View style={styles.headerLeft}>
-                <View style={styles.cardIconBox}>
-                  <FontAwesome name="trophy" size={13} color="#007AFF" />
-                </View>
-                <Text style={styles.cardTitle}>Barbell Milestones</Text>
-              </View>
-            </View>
+        {/* Barbell Milestones Grid (Square Chips) */}
+        <View style={[styles.card, { borderColor: colors.outline, backgroundColor: colors.surface }]}>
+          <Text variant="label" color="primary" style={styles.specTitle}>
+            BARBELL MILESTONES
+          </Text>
 
-            <View style={styles.milestonesGrid}>
-              {BARBELL_MILESTONES.map((item) => {
-                const isSelected = numericLb === item.lb;
-                return (
-                  <TouchableOpacity
-                    key={item.lb}
-                    style={[styles.milestoneBtn, isSelected && styles.milestoneBtnActive]}
-                    onPress={() => handleSelectWeight(item.lb)}
-                    activeOpacity={0.7}
-                  >
-                    <View style={styles.milestoneTopRow}>
-                      <Text
-                        style={[
-                          styles.milestoneLb,
-                          isSelected && styles.milestoneLbActive,
-                        ]}
-                      >
-                        {item.lb} lb
-                      </Text>
-                      <Text
-                        style={[
-                          styles.milestoneKg,
-                          isSelected && styles.milestoneKgActive,
-                        ]}
-                      >
-                        {lbToKg(item.lb)} kg
-                      </Text>
-                    </View>
-                    <Text
-                      style={[
-                        styles.milestoneLabel,
-                        isSelected && styles.milestoneLabelActive,
-                      ]}
-                      numberOfLines={1}
-                    >
-                      {item.label}
-                    </Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
+          <View style={styles.milestoneGrid}>
+            {BARBELL_MILESTONES.map((m) => (
+              <Pressable
+                key={m.lb}
+                onPress={() => handleSelectMilestone(m.lb)}
+                style={({ pressed }) => [
+                  styles.milestoneChip,
+                  {
+                    backgroundColor: pressed ? colors.raised : colors.surface,
+                    borderColor: colors.outline,
+                    borderRadius: radius.control,
+                  },
+                ]}
+              >
+                <Text variant="numeral" color="primary">
+                  {m.lb}
+                </Text>
+                <Text variant="micro" color="muted" style={{ marginTop: 2 }}>
+                  {m.label}
+                </Text>
+              </Pressable>
+            ))}
           </View>
-
-          {/* Dumbbell Weights Card */}
-          <View style={styles.card}>
-            <View style={styles.cardHeader}>
-              <View style={styles.headerLeft}>
-                <View style={styles.cardIconBox}>
-                  <FontAwesome name="cube" size={13} color="#007AFF" />
-                </View>
-                <Text style={styles.cardTitle}>Common Dumbbells</Text>
-              </View>
-            </View>
-
-            <View style={styles.dumbbellGrid}>
-              {DUMBBELL_PRESETS.map((lb) => {
-                const isSelected = numericLb === lb;
-                return (
-                  <TouchableOpacity
-                    key={lb}
-                    style={[styles.dumbbellBtn, isSelected && styles.dumbbellBtnActive]}
-                    onPress={() => handleSelectWeight(lb)}
-                    activeOpacity={0.7}
-                  >
-                    <Text
-                      style={[
-                        styles.dumbbellLb,
-                        isSelected && styles.dumbbellLbActive,
-                      ]}
-                    >
-                      {lb} lb
-                    </Text>
-                    <Text
-                      style={[
-                        styles.dumbbellKg,
-                        isSelected && styles.dumbbellKgActive,
-                      ]}
-                    >
-                      {lbToKg(lb)} kg
-                    </Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
-          </View>
-        </ScrollView>
+        </View>
       </KeyboardAvoidingView>
-    </SafeAreaView>
+    </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: '#F8F9FA',
-  },
-  container: {
-    flex: 1,
-  },
-  scroll: {
-    padding: 16,
-    paddingBottom: 40,
+  keyboardContainer: {
+    width: '100%',
   },
   card: {
-    backgroundColor: '#fff',
-    borderRadius: 16,
-    padding: 16,
     borderWidth: 1,
-    borderColor: '#E5E5EA',
-    marginBottom: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.03,
-    shadowRadius: 2,
-    elevation: 1,
-  },
-  plateCard: {
-    backgroundColor: '#fff',
-    borderRadius: 16,
+    borderRadius: 0,
     padding: 16,
-    borderWidth: 1,
-    borderColor: '#C8E6C9',
     marginBottom: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.03,
-    shadowRadius: 2,
-    elevation: 1,
   },
-  cardHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 14,
+  fieldSection: {
+    width: '100%',
   },
-  headerLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
+  fieldLabel: {
+    marginBottom: 6,
   },
-  cardIconBox: {
-    width: 26,
-    height: 26,
-    borderRadius: 13,
-    backgroundColor: '#EBF3FF',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  cardTitle: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: '#1C1C1E',
-  },
-  clearBtn: {
-    backgroundColor: '#F2F2F7',
-    paddingVertical: 5,
-    paddingHorizontal: 10,
-    borderRadius: 8,
-  },
-  clearBtnText: {
-    color: '#8E8E93',
-    fontSize: 13,
-    fontWeight: '600',
-  },
-  inputBox: {
+  resultLabelRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: '#F2F2F7',
-    borderRadius: 12,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
+    marginBottom: 6,
   },
-  inputLeft: {
-    flex: 1,
+  copyAction: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
-  inputSubLabel: {
-    fontSize: 10,
-    fontWeight: '700',
-    color: '#8E8E93',
-    letterSpacing: 0.5,
-    marginBottom: 2,
+  fieldWrapper: {
+    height: 52,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    borderWidth: 1,
+    borderRadius: 0,
   },
   numericInput: {
-    fontSize: 24,
-    fontWeight: '800',
-    fontVariant: ['tabular-nums'],
-    color: '#1C1C1E',
-    padding: 0,
-  },
-  unitBadgeLb: {
-    backgroundColor: '#EFF6FF',
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 8,
-  },
-  unitBadgeLbText: {
-    fontSize: 13,
-    fontWeight: '800',
-    color: '#007AFF',
-  },
-  unitBadgeKg: {
-    backgroundColor: '#E8F5E9',
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 8,
-  },
-  unitBadgeKgText: {
-    fontSize: 13,
-    fontWeight: '800',
-    color: '#2E7D32',
-  },
-  dividerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginVertical: 10,
-  },
-  dividerLine: {
     flex: 1,
-    height: 1,
-    backgroundColor: '#E5E5EA',
+    height: '100%',
+    padding: 0,
+    fontVariant: ['tabular-nums'],
+    includeFontPadding: false,
   },
-  swapCircle: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: '#fff',
-    borderWidth: 1,
-    borderColor: '#E5E5EA',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginHorizontal: 10,
-  },
-  conversionFooter: {
-    marginTop: 12,
-    alignItems: 'center',
-  },
-  conversionFormula: {
-    fontSize: 12,
-    color: '#8E8E93',
-    fontWeight: '500',
-  },
-  perSideLoadText: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#2E7D32',
-  },
-  emptyBarText: {
-    fontSize: 13,
-    color: '#636366',
-    fontStyle: 'italic',
-    paddingVertical: 4,
-  },
-  platesGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-    alignItems: 'center',
-  },
-  plateChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#E8F5E9',
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 8,
-    gap: 4,
-  },
-  plateChipCount: {
-    fontSize: 13,
-    fontWeight: '800',
-    color: '#2E7D32',
-  },
-  plateChipWeight: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#1B5E20',
-  },
-  plateRemainderText: {
-    fontSize: 12,
-    color: '#E65100',
-    fontWeight: '600',
-    marginLeft: 4,
-  },
-  milestonesGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 10,
-    justifyContent: 'space-between',
-  },
-  milestoneBtn: {
-    width: '48%',
-    backgroundColor: '#F2F2F7',
-    borderRadius: 12,
-    padding: 12,
-    borderWidth: 1,
-    borderColor: 'transparent',
-  },
-  milestoneBtnActive: {
-    backgroundColor: '#EFF6FF',
-    borderColor: '#007AFF',
-  },
-  milestoneTopRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'baseline',
-    marginBottom: 4,
-  },
-  milestoneLb: {
-    fontSize: 16,
-    fontWeight: '800',
-    color: '#1C1C1E',
-  },
-  milestoneLbActive: {
-    color: '#007AFF',
-  },
-  milestoneKg: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#8E8E93',
-  },
-  milestoneKgActive: {
-    color: '#007AFF',
-  },
-  milestoneLabel: {
-    fontSize: 11,
-    color: '#8E8E93',
-    fontWeight: '500',
-  },
-  milestoneLabelActive: {
-    color: '#007AFF',
-    fontWeight: '600',
-  },
-  dumbbellGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-    justifyContent: 'space-between',
-  },
-  dumbbellBtn: {
-    width: '31%',
-    backgroundColor: '#F2F2F7',
-    borderRadius: 10,
-    paddingVertical: 10,
+  unitTag: {
     paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderWidth: 1,
+    borderRadius: 2,
+    marginLeft: 8,
+  },
+  swapRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginVertical: 12,
+  },
+  swapButton: {
+    width: 44,
+    height: 44,
+    borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
+    marginHorizontal: 12,
+  },
+  specTitle: {
+    marginBottom: 12,
+  },
+  plateTable: {
+    width: '100%',
+  },
+  plateRowHeader: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    justifyContent: 'space-between',
+    paddingBottom: 8,
+    borderBottomWidth: 1,
+    marginBottom: 8,
+  },
+  plateItemRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+  },
+  emptyPlateText: {
+    paddingVertical: 12,
+    textAlign: 'center',
+  },
+  remainderRow: {
+    marginTop: 8,
+  },
+  milestoneGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  milestoneChip: {
+    width: '31%',
+    height: 64,
     borderWidth: 1,
-    borderColor: 'transparent',
-  },
-  dumbbellBtnActive: {
-    backgroundColor: '#EFF6FF',
-    borderColor: '#007AFF',
-  },
-  dumbbellLb: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#1C1C1E',
-  },
-  dumbbellLbActive: {
-    color: '#007AFF',
-  },
-  dumbbellKg: {
-    fontSize: 11,
-    color: '#8E8E93',
-    marginTop: 2,
-  },
-  dumbbellKgActive: {
-    color: '#007AFF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 4,
   },
 });

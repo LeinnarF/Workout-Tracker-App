@@ -2,18 +2,18 @@ import React, { useState, useEffect } from 'react';
 import {
   Modal,
   View,
-  Text,
-  TextInput,
-  TouchableOpacity,
   StyleSheet,
   SafeAreaView,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
   Alert,
+  Pressable,
 } from 'react-native';
+import { X } from 'lucide-react-native';
 import { Exercise } from '../db/types';
-import { Stepper } from './Stepper';
+import { useTheme } from '../theme/useTheme';
+import { Text, Button, Field, Stepper, Rule } from './ui';
 
 interface Props {
   visible: boolean;
@@ -30,6 +30,7 @@ interface Props {
 }
 
 export function ExerciseModal({ visible, exercise, onClose, onSave }: Props) {
+  const { colors } = useTheme();
   const [name, setName] = useState('');
   const [targetSets, setTargetSets] = useState(3);
   const [repMin, setRepMin] = useState(5);
@@ -93,241 +94,160 @@ export function ExerciseModal({ visible, exercise, onClose, onSave }: Props) {
   return (
     <Modal
       visible={visible}
-      animationType="slide"
-      presentationStyle="pageSheet"
+      animationType="fade"
+      presentationStyle="overFullScreen"
+      transparent
       onRequestClose={onClose}
     >
-      <SafeAreaView style={styles.safeArea}>
-        <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-          style={styles.keyboardContainer}
-          keyboardVerticalOffset={Platform.OS === 'ios' ? 20 : 0}
-        >
-          <View style={styles.header}>
-            <TouchableOpacity onPress={onClose} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-              <Text style={styles.cancelText}>Cancel</Text>
-            </TouchableOpacity>
-            <Text style={styles.headerTitle}>{exercise ? 'Edit Exercise' : 'New Exercise'}</Text>
-            <TouchableOpacity
-              onPress={handleSave}
-              disabled={saving}
-              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-            >
-              <Text style={[styles.saveText, saving && { opacity: 0.5 }]}>
-                {saving ? 'Saving...' : 'Save'}
-              </Text>
-            </TouchableOpacity>
-          </View>
-
-          <ScrollView
-            contentContainerStyle={styles.scrollContent}
-            keyboardShouldPersistTaps="handled"
-            showsVerticalScrollIndicator={false}
+      <View style={styles.overlay}>
+        <SafeAreaView style={[styles.dialogSheet, { backgroundColor: colors.surface, borderColor: colors.outline }]}>
+          <KeyboardAvoidingView
+            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+            style={styles.keyboardContainer}
           >
-            {/* Exercise Name */}
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>Exercise Name</Text>
-              <TextInput
-                style={styles.textInput}
-                placeholder="e.g. Incline Bench Press"
-                placeholderTextColor="#A0A0A5"
+            {/* Header */}
+            <View style={[styles.header, { borderBottomColor: colors.outline }]}>
+              <Text variant="title" color="primary">
+                {exercise ? 'EDIT EXERCISE' : 'NEW EXERCISE'}
+              </Text>
+              <Pressable onPress={onClose} hitSlop={12}>
+                <X size={20} color={colors.text} strokeWidth={1.75} />
+              </Pressable>
+            </View>
+
+            <ScrollView
+              contentContainerStyle={styles.scrollContent}
+              keyboardShouldPersistTaps="handled"
+              showsVerticalScrollIndicator={false}
+              overScrollMode="never"
+            >
+              {/* Exercise Name */}
+              <Field
+                label="EXERCISE NAME"
+                placeholder="e.g. INCLINE BENCH PRESS"
                 value={name}
                 onChangeText={setName}
                 autoFocus={!exercise}
                 returnKeyType="done"
               />
-            </View>
 
-            {/* Target Sets */}
-            <View style={styles.sectionCard}>
-              <Text style={styles.sectionTitle}>Target Sets</Text>
-              <Text style={styles.sectionSubtitle}>
-                The number of working sets you aim to complete each session.
-              </Text>
-              <View style={styles.stepperWrapper}>
+              <Rule style={styles.ruleSpacing} />
+
+              {/* Target Sets & Increment */}
+              <View style={styles.stepperRow}>
                 <Stepper
-                  label="Sets"
+                  label="TARGET SETS"
                   value={targetSets}
                   onChange={setTargetSets}
                   step={1}
                   min={1}
                 />
-              </View>
-            </View>
-
-            {/* Rep Range */}
-            <View style={styles.sectionCard}>
-              <Text style={styles.sectionTitle}>Rep Range</Text>
-              <Text style={styles.sectionSubtitle}>
-                Double progression triggers when all sets reach the top of this range.
-              </Text>
-              <View style={styles.repRangeRow}>
                 <Stepper
-                  label="Min Reps"
-                  value={repMin}
-                  onChange={setRepMin}
-                  step={1}
-                  min={1}
-                />
-                <Text style={styles.rangeDivider}>to</Text>
-                <Stepper
-                  label="Max Reps"
-                  value={repMax}
-                  onChange={setRepMax}
-                  step={1}
-                  min={1}
-                />
-              </View>
-            </View>
-
-            {/* Weight Increment */}
-            <View style={styles.sectionCard}>
-              <Text style={styles.sectionTitle}>Weight Increment</Text>
-              <Text style={styles.sectionSubtitle}>
-                The amount of weight to add when progression criteria is met.
-              </Text>
-              <View style={styles.stepperWrapper}>
-                <Stepper
-                  label="Increment (lb)"
+                  label="INCREMENT"
+                  unit="LB"
                   value={incrementLb}
                   onChange={setIncrementLb}
                   step={2.5}
                   min={1}
                 />
               </View>
-            </View>
 
-            {/* Default / Starting Weight */}
-            <View style={styles.sectionCard}>
-              <Text style={styles.sectionTitle}>Default Weight</Text>
-              <Text style={styles.sectionSubtitle}>
-                The base weight prefilled when you log this exercise.
-              </Text>
-              <View style={styles.stepperWrapper}>
+              <Rule style={styles.ruleSpacing} />
+
+              {/* Rep Range */}
+              <View style={styles.stepperRow}>
                 <Stepper
-                  label="Weight (lb)"
+                  label="MIN REPS"
+                  value={repMin}
+                  onChange={setRepMin}
+                  step={1}
+                  min={1}
+                />
+                <Stepper
+                  label="MAX REPS"
+                  value={repMax}
+                  onChange={setRepMax}
+                  step={1}
+                  min={1}
+                />
+              </View>
+
+              <Rule style={styles.ruleSpacing} />
+
+              {/* Default Starting Weight */}
+              <View style={styles.stepperRow}>
+                <Stepper
+                  label="DEFAULT WEIGHT"
+                  unit="LB"
                   value={defaultWeightLb}
                   onChange={setDefaultWeightLb}
                   step={2.5}
                   min={0}
                 />
               </View>
-            </View>
 
-            <TouchableOpacity
-              style={[styles.primarySaveBtn, saving && { opacity: 0.6 }]}
-              onPress={handleSave}
-              disabled={saving}
-              activeOpacity={0.8}
-            >
-              <Text style={styles.primarySaveBtnText}>
-                {exercise ? 'Update Exercise' : 'Create Exercise'}
-              </Text>
-            </TouchableOpacity>
-          </ScrollView>
-        </KeyboardAvoidingView>
-      </SafeAreaView>
+              <Rule style={styles.ruleSpacing} />
+
+              {/* Stacked Action Buttons: Primary on top */}
+              <View style={styles.buttonStack}>
+                <Button
+                  label={exercise ? 'UPDATE EXERCISE' : 'CREATE EXERCISE'}
+                  variant="primary"
+                  onPress={handleSave}
+                  loading={saving}
+                />
+                <Button
+                  label="CANCEL"
+                  variant="secondary"
+                  onPress={onClose}
+                  disabled={saving}
+                />
+              </View>
+            </ScrollView>
+          </KeyboardAvoidingView>
+        </SafeAreaView>
+      </View>
     </Modal>
   );
 }
 
 const styles = StyleSheet.create({
-  safeArea: {
+  overlay: {
     flex: 1,
-    backgroundColor: '#F8F9FA',
+    backgroundColor: 'rgba(0, 0, 0, 0.5)', // 50% black per design rules
+    justifyContent: 'center',
+    padding: 16,
+  },
+  dialogSheet: {
+    maxHeight: '90%',
+    borderWidth: 1,
+    borderRadius: 0,
   },
   keyboardContainer: {
-    flex: 1,
+    width: '100%',
   },
   header: {
+    height: 52,
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
+    justifyContent: 'space-between',
     paddingHorizontal: 16,
-    paddingVertical: 14,
-    backgroundColor: '#fff',
     borderBottomWidth: 1,
-    borderBottomColor: '#E5E5EA',
-  },
-  headerTitle: {
-    fontSize: 17,
-    fontWeight: '700',
-    color: '#1C1C1E',
-  },
-  cancelText: {
-    fontSize: 16,
-    color: '#8E8E93',
-  },
-  saveText: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#007AFF',
   },
   scrollContent: {
     padding: 16,
-    paddingBottom: 160, // Extra space so keyboard never blocks inputs or buttons
+    paddingBottom: 24,
   },
-  inputGroup: {
-    marginBottom: 16,
+  ruleSpacing: {
+    marginVertical: 16,
   },
-  label: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#3A3A3C',
-    marginBottom: 8,
-  },
-  textInput: {
-    backgroundColor: '#fff',
-    borderWidth: 1,
-    borderColor: '#E5E5EA',
-    borderRadius: 10,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    fontSize: 17,
-    color: '#1C1C1E',
-  },
-  sectionCard: {
-    backgroundColor: '#fff',
-    padding: 16,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#E5E5EA',
-    marginBottom: 16,
-  },
-  sectionTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#1C1C1E',
-    marginBottom: 4,
-  },
-  sectionSubtitle: {
-    fontSize: 12,
-    color: '#8E8E93',
-    marginBottom: 14,
-  },
-  stepperWrapper: {
-    alignItems: 'center',
-  },
-  repRangeRow: {
+  stepperRow: {
     flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-around',
+    justifyContent: 'space-between',
+    gap: 8,
   },
-  rangeDivider: {
-    fontSize: 16,
-    color: '#8E8E93',
-    fontWeight: '600',
-  },
-  primarySaveBtn: {
-    backgroundColor: '#007AFF',
-    paddingVertical: 15,
-    borderRadius: 12,
-    alignItems: 'center',
+  buttonStack: {
     marginTop: 8,
-  },
-  primarySaveBtnText: {
-    color: '#fff',
-    fontSize: 17,
-    fontWeight: '700',
+    gap: 12,
   },
 });

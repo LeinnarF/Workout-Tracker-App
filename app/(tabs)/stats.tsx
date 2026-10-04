@@ -1,18 +1,15 @@
 import React, { useState, useCallback } from 'react';
 import {
   StyleSheet,
-  Text,
   View,
-  SafeAreaView,
-  FlatList,
-  TouchableOpacity,
-  ScrollView,
   ActivityIndicator,
   useWindowDimensions,
+  Pressable,
 } from 'react-native';
 import { useSQLiteContext } from 'expo-sqlite';
 import { useFocusEffect } from 'expo-router';
-import FontAwesome from '@expo/vector-icons/FontAwesome';
+import { ChevronDown, ChevronUp, ChevronRight, Check } from 'lucide-react-native';
+import { LineChart, BarChart } from 'react-native-gifted-charts';
 
 import {
   getPastSessions,
@@ -33,18 +30,21 @@ import {
   ExerciseOverloadStatus,
 } from '../../src/db/types';
 import { getExercises } from '../../src/db/queries';
-import { LineChart, BarChart } from 'react-native-gifted-charts';
+import { useTheme } from '../../src/theme/useTheme';
+import { Screen, Text, Badge, Rule } from '../../src/components/ui';
 
 const TIME_RANGES: { label: string; value: TimeRange }[] = [
   { label: '4W', value: '4W' },
   { label: '3M', value: '3M' },
   { label: '1Y', value: '1Y' },
-  { label: 'All', value: 'ALL' },
+  { label: 'ALL', value: 'ALL' },
 ];
 
 export default function StatsScreen() {
   const db = useSQLiteContext();
+  const { colors } = useTheme();
   const { width: windowWidth } = useWindowDimensions();
+
   const [viewMode, setViewMode] = useState<'overview' | 'charts' | 'history'>('overview');
 
   // Overview state
@@ -71,7 +71,6 @@ export default function StatsScreen() {
     { date: string; volume: number; bestE1rm: number; bestWeight: number }[]
   >([]);
   const [weeklyData, setWeeklyData] = useState<WeeklyRepStat[]>([]);
-  const [selectedWeek, setSelectedWeek] = useState<WeeklyRepStat | null>(null);
 
   const loadOverview = useCallback(async () => {
     setLoadingOverview(true);
@@ -115,7 +114,6 @@ export default function StatsScreen() {
           const stats = await getStatsForExercise(db, activeId, timeRange);
           setChartData(stats.daily);
           setWeeklyData(stats.weekly);
-          setSelectedWeek(null);
         } finally {
           setLoadingChart(false);
         }
@@ -164,1319 +162,761 @@ export default function StatsScreen() {
     }
   };
 
-  const handleSelectTimeRange = async (range: TimeRange) => {
-    setTimeRange(range);
-    if (selectedEx) {
-      setLoadingChart(true);
-      try {
-        const stats = await getStatsForExercise(db, selectedEx, range);
-        setChartData(stats.daily);
-        setWeeklyData(stats.weekly);
-      } catch (e) {
-        console.error('Error filtering chart stats:', e);
-      } finally {
-        setLoadingChart(false);
-      }
-    }
-  };
+  const selectedExerciseObj = exercises.find((e) => e.id === selectedEx);
 
-  const handleSelectExercise = async (id: number) => {
-    setSelectedEx(id);
-    setLoadingChart(true);
-    setSelectedWeek(null);
-    try {
-      const stats = await getStatsForExercise(db, id, timeRange);
-      setChartData(stats.daily);
-      setWeeklyData(stats.weekly);
-    } catch (e) {
-      console.error('Error fetching stats for exercise:', e);
-    } finally {
-      setLoadingChart(false);
-    }
-  };
+  const chartWidth = Math.max(260, windowWidth - 64);
 
-  const formatSessionDate = (dateStr: string) => {
-    const d = new Date(dateStr);
-    return d.toLocaleDateString(undefined, {
-      weekday: 'short',
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric',
-    });
-  };
+  // Map daily chart data for LineChart
+  const e1rmLinePoints = chartData.map((d) => ({
+    value: d.bestE1rm,
+    label: d.date.slice(5),
+  }));
 
-  const formatSessionTime = (startedAt: string, endedAt: string | null) => {
-    const start = new Date(startedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-    if (!endedAt) return `Started at ${start} (In progress)`;
-    const end = new Date(endedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-    return `${start} - ${end}`;
-  };
+  const weightLinePoints = chartData.map((d) => ({
+    value: d.bestWeight,
+    label: d.date.slice(5),
+  }));
+
+  // Map weekly data for BarChart
+  const weeklyBarData = weeklyData.map((w) => ({
+    value: w.totalReps,
+    label: w.weekStart.slice(5),
+    frontColor: w.hasWeightIncrease ? colors.accent : colors.raised,
+  }));
 
   return (
-    <SafeAreaView style={styles.container}>
-      {/* View Switcher: Overview | Charts | History */}
-      <View style={styles.toggleRow}>
-        <TouchableOpacity
-          style={[styles.toggleBtn, viewMode === 'overview' && styles.toggleBtnActive]}
+    <Screen title="STATS">
+      {/* Segmented View Mode Strip (0 radius, 1px outline) */}
+      <View style={[styles.viewModeStrip, { borderColor: colors.outline }]}>
+        <Pressable
           onPress={() => setViewMode('overview')}
-          activeOpacity={0.7}
+          style={[
+            styles.modeButton,
+            {
+              backgroundColor: viewMode === 'overview' ? colors.raised : colors.surface,
+              borderRightWidth: 1,
+              borderRightColor: colors.outline,
+            },
+          ]}
         >
-          <Text style={[styles.toggleText, viewMode === 'overview' && styles.toggleTextActive]}>
-            Overview
+          <Text
+            variant="label"
+            color={viewMode === 'overview' ? 'primary' : 'muted'}
+          >
+            OVERVIEW
           </Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.toggleBtn, viewMode === 'charts' && styles.toggleBtnActive]}
+        </Pressable>
+
+        <Pressable
           onPress={() => setViewMode('charts')}
-          activeOpacity={0.7}
+          style={[
+            styles.modeButton,
+            {
+              backgroundColor: viewMode === 'charts' ? colors.raised : colors.surface,
+              borderRightWidth: 1,
+              borderRightColor: colors.outline,
+            },
+          ]}
         >
-          <Text style={[styles.toggleText, viewMode === 'charts' && styles.toggleTextActive]}>
-            Charts
+          <Text
+            variant="label"
+            color={viewMode === 'charts' ? 'primary' : 'muted'}
+          >
+            CHARTS
           </Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.toggleBtn, viewMode === 'history' && styles.toggleBtnActive]}
+        </Pressable>
+
+        <Pressable
           onPress={() => setViewMode('history')}
-          activeOpacity={0.7}
+          style={[
+            styles.modeButton,
+            {
+              backgroundColor: viewMode === 'history' ? colors.raised : colors.surface,
+            },
+          ]}
         >
-          <Text style={[styles.toggleText, viewMode === 'history' && styles.toggleTextActive]}>
-            History
+          <Text
+            variant="label"
+            color={viewMode === 'history' ? 'primary' : 'muted'}
+          >
+            HISTORY
           </Text>
-        </TouchableOpacity>
+        </Pressable>
       </View>
 
-      {viewMode === 'overview' ? (
-        <ScrollView
-          contentContainerStyle={styles.overviewScroll}
-          showsVerticalScrollIndicator={false}
-        >
+      {/* OVERVIEW MODE */}
+      {viewMode === 'overview' && (
+        <View style={styles.tabContent}>
           {loadingOverview ? (
-            <View style={styles.detailsLoading}>
-              <ActivityIndicator size="small" color="#007AFF" />
-              <Text style={styles.detailsLoadingText}>Loading analytics...</Text>
-            </View>
+            <ActivityIndicator size="small" color={colors.accent} style={{ marginTop: 20 }} />
           ) : (
             <>
-              {/* 1. Lifetime KPIs */}
-              <View style={styles.kpiRow}>
-                <View style={styles.kpiCard}>
-                  <View style={[styles.kpiIconBox, { backgroundColor: '#EFF6FF' }]}>
-                    <FontAwesome name="calendar-check-o" size={13} color="#007AFF" />
-                  </View>
-                  <Text style={styles.kpiValue}>{lifetimeStats?.totalWorkouts || 0}</Text>
-                  <Text style={styles.kpiLabel}>Workouts</Text>
+              {/* Spec-sheet KPI Grid: Bordered cells */}
+              <View style={[styles.kpiGrid, { borderColor: colors.outline }]}>
+                <View style={[styles.kpiCell, { borderRightWidth: 1, borderRightColor: colors.outline }]}>
+                  <Text variant="label" color="muted">
+                    WORKOUTS
+                  </Text>
+                  <Text variant="numeral" color="primary" style={styles.kpiValue}>
+                    {lifetimeStats?.totalWorkouts || 0}
+                  </Text>
                 </View>
 
-                <View style={styles.kpiCard}>
-                  <View style={[styles.kpiIconBox, { backgroundColor: '#E8F5E9' }]}>
-                    <FontAwesome name="database" size={13} color="#2E7D32" />
-                  </View>
-                  <Text style={styles.kpiValue}>
+                <View style={[styles.kpiCell, { borderRightWidth: 1, borderRightColor: colors.outline }]}>
+                  <Text variant="label" color="muted">
+                    VOLUME LB
+                  </Text>
+                  <Text variant="numeral" color="primary" style={styles.kpiValue}>
                     {lifetimeStats
                       ? lifetimeStats.totalVolumeLb >= 1000
-                        ? `${(lifetimeStats.totalVolumeLb / 1000).toFixed(1)}k`
+                        ? `${(lifetimeStats.totalVolumeLb / 1000).toFixed(1)}K`
                         : lifetimeStats.totalVolumeLb
                       : 0}
                   </Text>
-                  <Text style={styles.kpiLabel}>Volume (lb)</Text>
                 </View>
 
-                <View style={styles.kpiCard}>
-                  <View style={[styles.kpiIconBox, { backgroundColor: '#FFF7ED' }]}>
-                    <FontAwesome name="check-square-o" size={13} color="#E65100" />
-                  </View>
-                  <Text style={styles.kpiValue}>{lifetimeStats?.totalSets || 0}</Text>
-                  <Text style={styles.kpiLabel}>Total Sets</Text>
-                </View>
-              </View>
-
-              {/* 2. 3x/Week Consistency Goal Card */}
-              <View style={styles.overviewCard}>
-                <View style={styles.cardHeader}>
-                  <View style={styles.headerLeft}>
-                    <View style={[styles.cardIconBox, { backgroundColor: '#FFF3E0' }]}>
-                      <FontAwesome name="fire" size={14} color="#FF9500" />
-                    </View>
-                    <Text style={styles.overviewCardTitle}>Weekly Consistency</Text>
-                  </View>
-                  <View style={styles.streakBadge}>
-                    <Text style={styles.streakBadgeText}>
-                      {lifetimeStats?.currentStreakWeeks || 0} Week Streak 🔥
-                    </Text>
-                  </View>
-                </View>
-
-                <View style={styles.consistencyBody}>
-                  <Text style={styles.consistencySub}>
-                    Routine Goal: 3 full-body sessions / week
+                <View style={styles.kpiCell}>
+                  <Text variant="label" color="muted">
+                    TOTAL SETS
                   </Text>
-
-                  <View style={styles.pipsRow}>
-                    {[1, 2, 3].map((num) => {
-                      const isDone = (lifetimeStats?.workoutsThisWeek || 0) >= num;
-                      return (
-                        <View key={num} style={[styles.pipItem, isDone && styles.pipItemDone]}>
-                          {isDone ? (
-                            <FontAwesome name="check" size={14} color="#fff" />
-                          ) : (
-                            <Text style={styles.pipText}>{num}</Text>
-                          )}
-                        </View>
-                      );
-                    })}
-                  </View>
-
-                  <Text style={styles.consistencyStatusText}>
-                    {(lifetimeStats?.workoutsThisWeek || 0) >= 3
-                      ? '🎉 3/3 target reached for this week! Excellent work!'
-                      : `${lifetimeStats?.workoutsThisWeek || 0} of 3 sessions completed this week.`}
+                  <Text variant="numeral" color="primary" style={styles.kpiValue}>
+                    {lifetimeStats?.totalSets || 0}
                   </Text>
                 </View>
               </View>
 
-              {/* 3. Progressive Overload Radar */}
-              <View style={styles.overviewCard}>
-                <View style={styles.cardHeader}>
-                  <View style={styles.headerLeft}>
-                    <View style={[styles.cardIconBox, { backgroundColor: '#E8F5E9' }]}>
-                      <FontAwesome name="bolt" size={13} color="#2E7D32" />
-                    </View>
-                    <Text style={styles.overviewCardTitle}>Progression Radar</Text>
-                  </View>
-                  <Text style={styles.overloadHeaderHint}>Double Progression</Text>
+              {/* Weekly Consistency Spec Box */}
+              <View style={[styles.specBlock, { borderColor: colors.outline, backgroundColor: colors.surface }]}>
+                <View style={styles.specHeaderRow}>
+                  <Text variant="label" color="primary">
+                    WEEKLY CONSISTENCY
+                  </Text>
+                  <Badge
+                    label={`${lifetimeStats?.currentStreakWeeks || 0} WK STREAK`}
+                    variant="neutral"
+                  />
                 </View>
+                <Text variant="micro" color="muted" style={styles.specSubtitle}>
+                  GOAL: 3 SESSIONS / WEEK
+                </Text>
 
-                {overloadStatuses.length === 0 ? (
-                  <Text style={styles.cardEmptyText}>No exercise data recorded yet.</Text>
-                ) : (
-                  <View style={styles.overloadList}>
-                    {overloadStatuses.map((item) => (
-                      <View key={item.exerciseId} style={styles.overloadItem}>
-                        <View style={{ flex: 1 }}>
-                          <Text style={styles.overloadName}>{item.exerciseName}</Text>
-                          <Text style={styles.overloadSub}>
-                            {item.currentWeightLb} lb • Target: {item.targetSets}×{item.repMax} reps
-                          </Text>
-                          {item.lastSessionReps.length > 0 && (
-                            <Text style={styles.overloadLastReps}>
-                              Last: {item.lastSessionReps.join(', ')} reps
-                            </Text>
-                          )}
-                        </View>
-
-                        {item.isReadyForIncrease ? (
-                          <View style={styles.overloadReadyBadge}>
-                            <FontAwesome
-                              name="arrow-up"
-                              size={10}
-                              color="#2E7D32"
-                              style={{ marginRight: 4 }}
-                            />
-                            <Text style={styles.overloadReadyText}>
-                              Ready → {item.suggestedWeightLb} lb
-                            </Text>
-                          </View>
+                {/* Consistency Cells */}
+                <View style={styles.consistencyPipsRow}>
+                  {[1, 2, 3].map((num) => {
+                    const isDone = (lifetimeStats?.workoutsThisWeek || 0) >= num;
+                    return (
+                      <View
+                        key={num}
+                        style={[
+                          styles.consistencyCell,
+                          {
+                            borderColor: isDone ? colors.accent : colors.outline,
+                            backgroundColor: isDone ? colors.accentTint : colors.raised,
+                          },
+                        ]}
+                      >
+                        {isDone ? (
+                          <Check size={18} color={colors.accent} strokeWidth={2.5} />
                         ) : (
-                          <View style={styles.overloadProgressBadge}>
-                            <Text style={styles.overloadProgressText}>In Progress</Text>
-                          </View>
+                          <Text variant="label" color="muted">
+                            {num}
+                          </Text>
                         )}
                       </View>
-                    ))}
-                  </View>
-                )}
+                    );
+                  })}
+                </View>
               </View>
 
-              {/* 4. Personal Records Trophy Case */}
-              <View style={styles.overviewCard}>
-                <View style={styles.cardHeader}>
-                  <View style={styles.headerLeft}>
-                    <View style={[styles.cardIconBox, { backgroundColor: '#FFF9C4' }]}>
-                      <FontAwesome name="trophy" size={14} color="#F57F17" />
-                    </View>
-                    <Text style={styles.overviewCardTitle}>Personal Records (PRs)</Text>
-                  </View>
+              {/* Progression Radar */}
+              <View style={[styles.specBlock, { borderColor: colors.outline, backgroundColor: colors.surface }]}>
+                <View style={styles.specHeaderRow}>
+                  <Text variant="label" color="primary">
+                    PROGRESSION RADAR
+                  </Text>
+                  <Text variant="micro" color="muted">
+                    DOUBLE PROGRESSION
+                  </Text>
                 </View>
 
-                {prs.length === 0 ? (
-                  <Text style={styles.cardEmptyText}>
-                    No PRs recorded yet. Complete workout sets to set records!
+                <View style={styles.radarList}>
+                  {overloadStatuses.map((item, idx) => (
+                    <View
+                      key={item.exerciseId}
+                      style={[
+                        styles.radarRow,
+                        {
+                          borderBottomColor: colors.outline,
+                          borderBottomWidth: idx === overloadStatuses.length - 1 ? 0 : 1,
+                        },
+                      ]}
+                    >
+                      <View style={{ flex: 1 }}>
+                        <Text variant="title" color="primary">
+                          {item.exerciseName}
+                        </Text>
+                        <Text variant="label" color="muted">
+                          {item.currentWeightLb} LB · {item.targetSets}×{item.repMax} REPS
+                        </Text>
+                      </View>
+
+                      {item.isReadyForIncrease ? (
+                        <Badge
+                          label={`READY +${item.suggestedWeightLb - item.currentWeightLb} LB`}
+                          variant="overload"
+                        />
+                      ) : (
+                        <Badge label="IN PROGRESS" variant="neutral" />
+                      )}
+                    </View>
+                  ))}
+                </View>
+              </View>
+
+              {/* PR Spec Sheet */}
+              <View style={[styles.specBlock, { borderColor: colors.outline, backgroundColor: colors.surface }]}>
+                <View style={styles.specHeaderRow}>
+                  <Text variant="label" color="primary">
+                    PERSONAL RECORDS
                   </Text>
-                ) : (
-                  <View style={styles.prList}>
-                    {prs.map((pr) => (
-                      <View key={pr.exerciseId} style={styles.prCard}>
-                        <Text style={styles.prExerciseName}>{pr.exerciseName}</Text>
+                </View>
 
-                        <View style={styles.prStatsGrid}>
-                          <View style={styles.prStatBox}>
-                            <Text style={styles.prStatLabel}>MAX WEIGHT</Text>
-                            <Text style={styles.prStatValue}>{pr.heaviestWeightLb} lb</Text>
-                            <Text style={styles.prStatDate}>
-                              {pr.heaviestWeightDate ? pr.heaviestWeightDate.slice(5) : ''}
-                            </Text>
-                          </View>
+                <View style={styles.prList}>
+                  {prs.map((pr, idx) => (
+                    <View
+                      key={pr.exerciseId}
+                      style={[
+                        styles.prRow,
+                        {
+                          borderBottomColor: colors.outline,
+                          borderBottomWidth: idx === prs.length - 1 ? 0 : 1,
+                        },
+                      ]}
+                    >
+                      <View style={styles.prHeader}>
+                        <Text variant="title" color="primary">
+                          {pr.exerciseName}
+                        </Text>
+                        <Badge label="PR" variant="pr" />
+                      </View>
 
-                          <View style={styles.prStatBox}>
-                            <Text style={styles.prStatLabel}>BEST 1RM</Text>
-                            <Text style={styles.prStatValue}>{pr.bestE1rm} lb</Text>
-                            <Text style={styles.prStatDate}>
-                              {pr.bestE1rmDate ? pr.bestE1rmDate.slice(5) : ''}
-                            </Text>
-                          </View>
-
-                          <View style={styles.prStatBox}>
-                            <Text style={styles.prStatLabel}>TOP SESSION</Text>
-                            <Text style={styles.prStatValue}>{pr.maxSessionVolume} lb</Text>
-                            <Text style={styles.prStatDate}>
-                              {pr.maxSessionVolumeDate ? pr.maxSessionVolumeDate.slice(5) : ''}
-                            </Text>
-                          </View>
+                      <View style={styles.prGridRow}>
+                        <View style={styles.prMetric}>
+                          <Text variant="micro" color="muted">
+                            MAX WEIGHT
+                          </Text>
+                          <Text variant="numeral" color="primary">
+                            {pr.heaviestWeightLb} LB
+                          </Text>
+                        </View>
+                        <View style={styles.prMetric}>
+                          <Text variant="micro" color="muted">
+                            EST. 1RM
+                          </Text>
+                          <Text variant="numeral" color="primary">
+                            {pr.bestE1rm} LB
+                          </Text>
+                        </View>
+                        <View style={styles.prMetric}>
+                          <Text variant="micro" color="muted">
+                            MAX VOLUME
+                          </Text>
+                          <Text variant="numeral" color="primary">
+                            {pr.maxSessionVolume} LB
+                          </Text>
                         </View>
                       </View>
-                    ))}
-                  </View>
-                )}
+                    </View>
+                  ))}
+                </View>
               </View>
             </>
           )}
-        </ScrollView>
-      ) : viewMode === 'history' ? (
-        <FlatList
-          data={sessions}
-          keyExtractor={(item) => item.id.toString()}
-          contentContainerStyle={styles.historyList}
-          renderItem={({ item }) => {
-            const isExpanded = expandedSessionId === item.id;
-            const sets = sessionDetails[item.id] || [];
+        </View>
+      )}
 
-            // Group sets by exercise
-            const groupedByExercise = sets.reduce((acc, set) => {
-              if (!acc[set.exercise_id]) {
-                acc[set.exercise_id] = {
-                  name: set.exercise_name,
-                  sets: [],
-                };
-              }
-              acc[set.exercise_id].sets.push(set);
-              return acc;
-            }, {} as Record<number, { name: string; sets: (SetRecord & { exercise_name: string })[] }>);
-
-            const exerciseGroups = Object.values(groupedByExercise);
-            const totalVolume = sets.reduce((sum, s) => sum + s.weight_lb * s.reps, 0);
-
-            return (
-              <View style={[styles.historyCard, isExpanded && styles.historyCardActive]}>
-                <TouchableOpacity
-                  style={styles.historyCardHeader}
-                  onPress={() => handleToggleSession(item.id)}
-                  activeOpacity={0.7}
-                >
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.historyDate}>{formatSessionDate(item.started_at)}</Text>
-                    <Text style={styles.historySub}>
-                      {formatSessionTime(item.started_at, item.ended_at)}
-                    </Text>
-                  </View>
-
-                  <View style={styles.headerRightRow}>
-                    <View
-                      style={[
-                        styles.statusBadge,
-                        item.ended_at ? styles.statusCompleted : styles.statusInProgress,
-                      ]}
-                    >
-                      <Text
-                        style={[
-                          styles.statusBadgeText,
-                          item.ended_at
-                            ? styles.statusCompletedText
-                            : styles.statusInProgressText,
-                        ]}
-                      >
-                        {item.ended_at ? 'Done' : 'Active'}
-                      </Text>
-                    </View>
-                    <FontAwesome
-                      name={isExpanded ? 'chevron-up' : 'chevron-down'}
-                      size={15}
-                      color="#8E8E93"
-                      style={{ marginLeft: 10 }}
-                    />
-                  </View>
-                </TouchableOpacity>
-
-                {/* Expanded exercises breakdown */}
-                {isExpanded && (
-                  <View style={styles.historyCardBody}>
-                    {loadingDetails === item.id ? (
-                      <View style={styles.detailsLoading}>
-                        <ActivityIndicator size="small" color="#007AFF" />
-                        <Text style={styles.detailsLoadingText}>Loading workout details...</Text>
-                      </View>
-                    ) : exerciseGroups.length === 0 ? (
-                      <Text style={styles.noExercisesText}>No exercises recorded in this session.</Text>
-                    ) : (
-                      <>
-                        <View style={styles.summaryBar}>
-                          <Text style={styles.summaryBarItem}>
-                            <Text style={styles.summaryBold}>{exerciseGroups.length}</Text> Exercises
-                          </Text>
-                          <Text style={styles.summaryDivider}>•</Text>
-                          <Text style={styles.summaryBarItem}>
-                            <Text style={styles.summaryBold}>{sets.length}</Text> Sets
-                          </Text>
-                          <Text style={styles.summaryDivider}>•</Text>
-                          <Text style={styles.summaryBarItem}>
-                            <Text style={styles.summaryBold}>{Math.round(totalVolume)}</Text> lb Volume
-                          </Text>
-                        </View>
-
-                        {exerciseGroups.map((group) => {
-                          const groupVolume = group.sets.reduce(
-                            (v, s) => v + s.weight_lb * s.reps,
-                            0
-                          );
-                          const maxWeight = Math.max(...group.sets.map((s) => s.weight_lb));
-
-                          return (
-                            <View key={group.name} style={styles.exerciseSection}>
-                              <View style={styles.exerciseSectionHeader}>
-                                <Text style={styles.exerciseSectionTitle}>{group.name}</Text>
-                                <Text style={styles.exerciseSectionSubtitle}>
-                                  Top: {maxWeight} lb • Vol: {Math.round(groupVolume)} lb
-                                </Text>
-                              </View>
-
-                              <View style={styles.setsGrid}>
-                                {group.sets.map((s, idx) => (
-                                  <View key={s.id} style={styles.setPill}>
-                                    <Text style={styles.setPillIndex}>Set {idx + 1}</Text>
-                                    <Text style={styles.setPillValue}>
-                                      {s.weight_lb} lb × {s.reps}
-                                    </Text>
-                                  </View>
-                                ))}
-                              </View>
-                            </View>
-                          );
-                        })}
-                      </>
-                    )}
-                  </View>
-                )}
-              </View>
-            );
-          }}
-          ListEmptyComponent={
-            <View style={styles.emptyContainer}>
-              <FontAwesome name="calendar-o" size={40} color="#C7C7CC" style={{ marginBottom: 12 }} />
-              <Text style={styles.emptyTitle}>No Workouts Yet</Text>
-              <Text style={styles.emptySubtitle}>
-                Completed workout sessions with logged sets will appear here.
+      {/* CHARTS MODE */}
+      {viewMode === 'charts' && (
+        <View style={styles.tabContent}>
+          {/* Exercise Picker Segment */}
+          <Pressable
+            onPress={() => setIsDropdownOpen(!isDropdownOpen)}
+            style={[
+              styles.exerciseDropdownBtn,
+              { backgroundColor: colors.surface, borderColor: colors.outline },
+            ]}
+          >
+            <View>
+              <Text variant="micro" color="muted">
+                EXERCISE
+              </Text>
+              <Text variant="title" color="primary">
+                {selectedExerciseObj?.name || 'SELECT EXERCISE'}
               </Text>
             </View>
-          }
-        />
-      ) : (
-        <View style={{ flex: 1 }}>
-          {/* Exercise Dropdown */}
-          <View style={styles.dropdownWrapper}>
-            <TouchableOpacity
-              style={styles.dropdownButton}
-              onPress={() => setIsDropdownOpen((prev) => !prev)}
-              activeOpacity={0.7}
-            >
-              <View style={styles.dropdownLeft}>
-                <View style={styles.dropdownIconContainer}>
-                  <FontAwesome name="bar-chart" size={13} color="#007AFF" />
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.dropdownLabel}>Exercise</Text>
-                  <Text style={styles.dropdownSelectedText} numberOfLines={1}>
-                    {exercises.find((e) => e.id === selectedEx)?.name ||
-                      (exercises.length > 0 ? 'Select Exercise' : 'No Exercises')}
-                  </Text>
-                </View>
-              </View>
-              <FontAwesome
-                name={isDropdownOpen ? 'chevron-up' : 'chevron-down'}
-                size={14}
-                color="#8E8E93"
-              />
-            </TouchableOpacity>
-
-            {isDropdownOpen && (
-              <View style={styles.dropdownList}>
-                <ScrollView style={{ maxHeight: 220 }} nestedScrollEnabled bounces={false}>
-                  {exercises.map((ex, index) => {
-                    const isSelected = selectedEx === ex.id;
-                    return (
-                      <TouchableOpacity
-                        key={ex.id}
-                        style={[
-                          styles.dropdownOption,
-                          isSelected && styles.dropdownOptionActive,
-                          index === exercises.length - 1 && { borderBottomWidth: 0 },
-                        ]}
-                        onPress={() => {
-                          handleSelectExercise(ex.id);
-                          setIsDropdownOpen(false);
-                        }}
-                        activeOpacity={0.7}
-                      >
-                        <Text
-                          style={[
-                            styles.dropdownOptionText,
-                            isSelected && styles.dropdownOptionTextActive,
-                          ]}
-                        >
-                          {ex.name}
-                        </Text>
-                        {isSelected && (
-                          <FontAwesome name="check" size={14} color="#007AFF" />
-                        )}
-                      </TouchableOpacity>
-                    );
-                  })}
-                </ScrollView>
-              </View>
+            {isDropdownOpen ? (
+              <ChevronUp size={18} color={colors.text} strokeWidth={1.75} />
+            ) : (
+              <ChevronDown size={18} color={colors.text} strokeWidth={1.75} />
             )}
-          </View>
+          </Pressable>
 
-          {/* Time Range Filter Pills */}
-          <View style={styles.timeRangeRow}>
-            {TIME_RANGES.map((r) => {
-              const isSelected = timeRange === r.value;
-              return (
-                <TouchableOpacity
-                  key={r.value}
-                  style={[styles.timeRangeBtn, isSelected && styles.timeRangeBtnActive]}
-                  onPress={() => handleSelectTimeRange(r.value)}
-                  activeOpacity={0.7}
+          {isDropdownOpen && (
+            <View style={[styles.dropdownList, { backgroundColor: colors.surface, borderColor: colors.outline }]}>
+              {exercises.map((ex, idx) => (
+                <Pressable
+                  key={ex.id}
+                  onPress={() => {
+                    setSelectedEx(ex.id);
+                    setIsDropdownOpen(false);
+                  }}
+                  style={[
+                    styles.dropdownItem,
+                    {
+                      backgroundColor: selectedEx === ex.id ? colors.raised : colors.surface,
+                      borderBottomColor: colors.outline,
+                      borderBottomWidth: idx === exercises.length - 1 ? 0 : 1,
+                    },
+                  ]}
                 >
                   <Text
-                    style={[
-                      styles.timeRangeText,
-                      isSelected && styles.timeRangeTextActive,
-                    ]}
+                    variant="label"
+                    color={selectedEx === ex.id ? 'accent' : 'primary'}
                   >
-                    {r.label}
+                    {ex.name}
                   </Text>
-                </TouchableOpacity>
+                </Pressable>
+              ))}
+            </View>
+          )}
+
+          {/* Time Range Strip: [ 4W ] [ 3M ] [ 1Y ] [ ALL ] */}
+          <View style={[styles.timeRangeStrip, { borderColor: colors.outline }]}>
+            {TIME_RANGES.map((tr, idx) => {
+              const isSelected = timeRange === tr.value;
+              return (
+                <Pressable
+                  key={tr.value}
+                  onPress={() => setTimeRange(tr.value)}
+                  style={[
+                    styles.rangeButton,
+                    {
+                      backgroundColor: isSelected ? colors.raised : colors.surface,
+                      borderRightColor: colors.outline,
+                      borderRightWidth: idx === TIME_RANGES.length - 1 ? 0 : 1,
+                    },
+                  ]}
+                >
+                  <Text
+                    variant="label"
+                    color={isSelected ? 'accent' : 'muted'}
+                  >
+                    {tr.label}
+                  </Text>
+                </Pressable>
               );
             })}
           </View>
 
-          <ScrollView
-            contentContainerStyle={styles.chartScroll}
-            onScrollBeginDrag={() => {
-              if (isDropdownOpen) setIsDropdownOpen(false);
-            }}
-          >
-            {loadingChart ? (
-              <View style={styles.chartLoadingContainer}>
-                <ActivityIndicator size="small" color="#007AFF" />
-                <Text style={styles.chartLoadingText}>Loading stats...</Text>
-              </View>
-            ) : weeklyData.length > 0 || chartData.length > 0 ? (
-              <>
-                {/* 1. Weekly Total Reps Bar Graph */}
-                <View style={styles.chartHeaderBlock}>
-                  <Text style={styles.chartTitle}>Weekly Total Reps</Text>
-                  <Text style={styles.chartSubtitle}>
-                    Total reps completed per week. Bar color changes when weight increased.
+          {loadingChart ? (
+            <ActivityIndicator size="small" color={colors.accent} style={{ marginTop: 24 }} />
+          ) : chartData.length === 0 ? (
+            <View style={[styles.emptyChartBox, { borderColor: colors.outline, backgroundColor: colors.surface }]}>
+              <Text variant="label" color="muted">
+                NO WORKOUT DATA RECORDED FOR THIS PERIOD.
+              </Text>
+            </View>
+          ) : (
+            <>
+              {/* E1RM and Weight Progress Line Chart */}
+              <View style={[styles.chartCard, { borderColor: colors.outline, backgroundColor: colors.surface }]}>
+                <View style={styles.chartTitleRow}>
+                  <Text variant="label" color="primary">
+                    EST. 1RM & TOP WEIGHT (LB)
                   </Text>
-
-                  {/* Legend */}
-                  <View style={styles.chartLegend}>
-                    <View style={styles.legendItem}>
-                      <View style={[styles.legendIndicator, { backgroundColor: '#007AFF' }]} />
-                      <Text style={styles.legendText}>Standard Week</Text>
-                    </View>
-                    <View style={styles.legendItem}>
-                      <View style={[styles.legendIndicator, { backgroundColor: '#34C759' }]} />
-                      <Text style={styles.legendText}>Weight Increased (+lb)</Text>
-                    </View>
+                  <View style={styles.legendRow}>
+                    <View style={[styles.legendBox, { backgroundColor: colors.accent }]} />
+                    <Text variant="micro" color="muted">
+                      1RM
+                    </Text>
+                    <View style={[styles.legendBox, { backgroundColor: colors.textMuted }]} />
+                    <Text variant="micro" color="muted">
+                      TOP
+                    </Text>
                   </View>
                 </View>
 
-                {weeklyData.length > 0 ? (
-                  <View style={styles.barChartContainer}>
-                    <BarChart
-                      data={weeklyData.map((w) => {
-                        const isSelected = selectedWeek?.weekStart === w.weekStart;
-                        return {
-                          value: w.totalReps,
-                          label: w.label,
-                          frontColor: w.hasWeightIncrease ? '#34C759' : '#007AFF',
-                          onPress: () => setSelectedWeek(isSelected ? null : w),
-                          topLabelComponent: () => (
-                            <Text
-                              style={{
-                                fontSize: 10,
-                                fontWeight: '700',
-                                color: w.hasWeightIncrease ? '#2E7D32' : '#007AFF',
-                                marginBottom: 2,
-                              }}
-                            >
-                              {w.totalReps}
-                            </Text>
-                          ),
-                        };
-                      })}
-                      width={Math.max(280, windowWidth - 70)}
-                      height={190}
-                      barWidth={Math.min(
-                        32,
-                        Math.max(
-                          22,
-                          Math.floor((Math.max(280, windowWidth - 70) - 70) / Math.max(1, weeklyData.length * 1.5))
-                        )
-                      )}
-                      spacing={Math.min(
-                        24,
-                        Math.max(
-                          12,
-                          Math.floor((Math.max(280, windowWidth - 70) - 70) / Math.max(1, weeklyData.length * 2))
-                        )
-                      )}
-                      initialSpacing={16}
-                      roundedTop
-                      roundedBottom={false}
-                      xAxisThickness={1}
-                      xAxisColor="#E5E5EA"
-                      yAxisThickness={1}
-                      yAxisColor="#E5E5EA"
-                      yAxisTextStyle={{ color: '#8E8E93', fontSize: 11 }}
-                      xAxisLabelTextStyle={{ color: '#8E8E93', fontSize: 11 }}
-                      noOfSections={4}
-                      rulesColor="#F2F2F7"
-                      isAnimated
-                      animationDuration={400}
-                    />
+                <LineChart
+                  data={e1rmLinePoints}
+                  data2={weightLinePoints}
+                  width={chartWidth}
+                  height={180}
+                  color={colors.accent}
+                  color2={colors.textMuted}
+                  thickness={2}
+                  thickness2={2}
+                  dataPointsColor={colors.accent}
+                  dataPointsColor2={colors.textMuted}
+                  dataPointsRadius={3}
+                  dataPointsRadius2={3}
+                  dataPointsShape="rectangular"
+                  dataPointsShape2="rectangular"
+                  rulesColor={colors.outline}
+                  rulesType="solid"
+                  xAxisColor={colors.outline}
+                  yAxisColor={colors.outline}
+                  xAxisLabelTextStyle={{
+                    color: colors.textMuted,
+                    fontSize: 10,
+                    fontFamily: 'IBMPlexMono_500Medium',
+                  }}
+                  yAxisTextStyle={{
+                    color: colors.textMuted,
+                    fontSize: 10,
+                    fontFamily: 'IBMPlexMono_500Medium',
+                  }}
+                  hideRules={false}
+                  initialSpacing={12}
+                  endSpacing={12}
+                />
+              </View>
 
-                    {selectedWeek && (
-                      <View style={styles.weekDetailCard}>
-                        <View style={styles.weekDetailHeader}>
-                          <Text style={styles.weekDetailTitle}>
-                            Week of {selectedWeek.label}
-                          </Text>
-                          {selectedWeek.hasWeightIncrease ? (
-                            <View style={styles.increaseBadge}>
-                              <FontAwesome name="arrow-up" size={10} color="#2E7D32" />
-                              <Text style={styles.increaseBadgeText}>Weight Increased</Text>
-                            </View>
-                          ) : (
-                            <View style={styles.standardBadge}>
-                              <Text style={styles.standardBadgeText}>Standard</Text>
-                            </View>
-                          )}
-                        </View>
-                        <Text style={styles.weekDetailText}>
-                          Total Reps: <Text style={styles.bold}>{selectedWeek.totalReps}</Text> • Peak Weight: <Text style={styles.bold}>{selectedWeek.maxWeight} lb</Text>
+              {/* Weekly Rep Volume Bar Chart */}
+              {weeklyBarData.length > 0 && (
+                <View style={[styles.chartCard, { borderColor: colors.outline, backgroundColor: colors.surface }]}>
+                  <View style={styles.chartTitleRow}>
+                    <Text variant="label" color="primary">
+                      WEEKLY TOTAL REPS
+                    </Text>
+                    <Badge label="GREEN = OVERLOAD" variant="neutral" />
+                  </View>
+
+                  <BarChart
+                    data={weeklyBarData}
+                    width={chartWidth}
+                    height={160}
+                    barWidth={18}
+                    spacing={14}
+                    roundedTop={false}
+                    roundedBottom={false}
+                    rulesColor={colors.outline}
+                    xAxisColor={colors.outline}
+                    yAxisColor={colors.outline}
+                    xAxisLabelTextStyle={{
+                      color: colors.textMuted,
+                      fontSize: 10,
+                      fontFamily: 'IBMPlexMono_500Medium',
+                    }}
+                    yAxisTextStyle={{
+                      color: colors.textMuted,
+                      fontSize: 10,
+                      fontFamily: 'IBMPlexMono_500Medium',
+                    }}
+                    initialSpacing={10}
+                  />
+                </View>
+              )}
+            </>
+          )}
+        </View>
+      )}
+
+      {/* HISTORY MODE */}
+      {viewMode === 'history' && (
+        <View style={styles.tabContent}>
+          {sessions.length === 0 ? (
+            <View style={[styles.emptyChartBox, { borderColor: colors.outline, backgroundColor: colors.surface }]}>
+              <Text variant="label" color="muted">
+                NO PAST SESSIONS LOGGED YET.
+              </Text>
+            </View>
+          ) : (
+            <View style={[styles.historyContainer, { borderColor: colors.outline }]}>
+              {sessions.map((sess, idx) => {
+                const isExpanded = expandedSessionId === sess.id;
+                const details = sessionDetails[sess.id] || [];
+                const isLoading = loadingDetails === sess.id;
+
+                const dateStr = new Date(sess.started_at).toLocaleDateString(undefined, {
+                  weekday: 'short',
+                  month: 'short',
+                  day: 'numeric',
+                });
+
+                return (
+                  <View
+                    key={sess.id}
+                    style={[
+                      styles.historyItem,
+                      {
+                        backgroundColor: colors.surface,
+                        borderBottomColor: colors.outline,
+                        borderBottomWidth: idx === sessions.length - 1 && !isExpanded ? 0 : 1,
+                      },
+                    ]}
+                  >
+                    <Pressable
+                      onPress={() => handleToggleSession(sess.id)}
+                      style={[
+                        styles.historyHeaderRow,
+                        isExpanded && { backgroundColor: colors.raised },
+                      ]}
+                    >
+                      <View>
+                        <Text variant="label" color="muted">
+                          {dateStr}
                         </Text>
+                        <Text variant="title" color="primary">
+                          SESSION {sess.id.toString().padStart(2, '0')}
+                        </Text>
+                      </View>
+
+                      {isExpanded ? (
+                        <ChevronUp size={18} color={colors.text} strokeWidth={1.75} />
+                      ) : (
+                        <ChevronRight size={18} color={colors.textMuted} strokeWidth={1.75} />
+                      )}
+                    </Pressable>
+
+                    {isExpanded && (
+                      <View style={[styles.historyDetails, { backgroundColor: colors.surface }]}>
+                        <Rule variant="dashed" style={{ marginBottom: 12 }} />
+
+                        {isLoading ? (
+                          <ActivityIndicator size="small" color={colors.accent} />
+                        ) : details.length === 0 ? (
+                          <Text variant="label" color="muted">
+                            NO SETS RECORDED.
+                          </Text>
+                        ) : (
+                          <View style={styles.historySetsTable}>
+                            <View style={[styles.tableHeader, { borderBottomColor: colors.outline }]}>
+                              <Text variant="label" color="muted" style={{ width: 120 }}>
+                                EXERCISE
+                              </Text>
+                              <Text variant="label" color="muted" style={{ flex: 1, textAlign: 'right', paddingRight: 16 }}>
+                                WEIGHT
+                              </Text>
+                              <Text variant="label" color="muted" style={{ width: 60, textAlign: 'right' }}>
+                                REPS
+                              </Text>
+                            </View>
+
+                            {details.map((s, sIdx) => (
+                              <View
+                                key={s.id}
+                                style={[
+                                  styles.historySetRow,
+                                  {
+                                    borderBottomColor: colors.outline,
+                                    borderBottomWidth: sIdx === details.length - 1 ? 0 : 1,
+                                  },
+                                ]}
+                              >
+                                <Text variant="label" color="primary" style={{ width: 120 }}>
+                                  {s.exercise_name}
+                                </Text>
+                                <Text variant="numeral" color="primary" style={{ flex: 1, textAlign: 'right', paddingRight: 16 }}>
+                                  {s.weight_lb} LB
+                                </Text>
+                                <Text variant="numeral" color="primary" style={{ width: 60, textAlign: 'right' }}>
+                                  {s.reps}
+                                </Text>
+                              </View>
+                            ))}
+                          </View>
+                        )}
                       </View>
                     )}
                   </View>
-                ) : (
-                  <Text style={styles.chartNoData}>No weekly sets recorded yet.</Text>
-                )}
-
-                {/* 2. Estimated 1RM */}
-                {chartData.length > 0 && (
-                  <>
-                    <Text style={[styles.chartTitle, { marginTop: 36 }]}>Estimated 1RM (lb)</Text>
-                    <LineChart
-                      data={chartData.map((d) => ({
-                        value: d.bestE1rm,
-                        label: d.date.slice(5),
-                      }))}
-                      width={Math.max(280, windowWidth - 70)}
-                      height={190}
-                      color="#FF9500"
-                      thickness={3}
-                      dataPointsColor="#FF9500"
-                    />
-
-                    {/* 3. Volume */}
-                    <Text style={[styles.chartTitle, { marginTop: 36 }]}>Volume (lb × reps)</Text>
-                    <LineChart
-                      data={chartData.map((d) => ({
-                        value: d.volume,
-                        label: d.date.slice(5),
-                      }))}
-                      width={Math.max(280, windowWidth - 70)}
-                      height={190}
-                      color="#34C759"
-                      thickness={3}
-                      dataPointsColor="#34C759"
-                    />
-                  </>
-                )}
-              </>
-            ) : (
-              <View style={styles.chartEmptyContainer}>
-                <FontAwesome name="line-chart" size={40} color="#C7C7CC" style={{ marginBottom: 12 }} />
-                <Text style={styles.emptyTitle}>No Data for this Exercise</Text>
-                <Text style={styles.emptySubtitle}>
-                  Log sets for {exercises.find((e) => e.id === selectedEx)?.name || 'this exercise'} to track progression here.
-                </Text>
-              </View>
-            )}
-          </ScrollView>
+                );
+              })}
+            </View>
+          )}
         </View>
       )}
-    </SafeAreaView>
+    </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#F8F9FA',
-  },
-  toggleRow: {
+  viewModeStrip: {
     flexDirection: 'row',
-    padding: 12,
-    backgroundColor: '#fff',
-    borderBottomWidth: 1,
-    borderBottomColor: '#E5E5EA',
-    justifyContent: 'center',
-    gap: 8,
-  },
-  toggleBtn: {
-    paddingVertical: 7,
-    paddingHorizontal: 16,
-    borderRadius: 20,
-    backgroundColor: '#F2F2F7',
-  },
-  toggleBtnActive: {
-    backgroundColor: '#007AFF',
-  },
-  toggleText: {
-    fontSize: 14,
-    color: '#3A3A3C',
-    fontWeight: '600',
-  },
-  toggleTextActive: {
-    color: '#fff',
-    fontWeight: '700',
-  },
-  overviewScroll: {
-    padding: 14,
-    paddingBottom: 40,
-  },
-  kpiRow: {
-    flexDirection: 'row',
-    gap: 10,
-    marginBottom: 14,
-  },
-  kpiCard: {
-    flex: 1,
-    backgroundColor: '#fff',
-    borderRadius: 14,
-    padding: 12,
-    alignItems: 'center',
+    height: 44,
     borderWidth: 1,
-    borderColor: '#E5E5EA',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.03,
-    shadowRadius: 2,
-    elevation: 1,
+    borderRadius: 0,
+    marginBottom: 16,
   },
-  kpiIconBox: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
+  modeButton: {
+    flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 6,
+  },
+  tabContent: {
+    width: '100%',
+  },
+  kpiGrid: {
+    flexDirection: 'row',
+    height: 72,
+    borderWidth: 1,
+    borderRadius: 0,
+    marginBottom: 16,
+  },
+  kpiCell: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 8,
   },
   kpiValue: {
-    fontSize: 17,
-    fontWeight: '800',
-    color: '#1C1C1E',
-  },
-  kpiLabel: {
-    fontSize: 11,
-    color: '#8E8E93',
-    fontWeight: '600',
     marginTop: 2,
   },
-  overviewCard: {
-    backgroundColor: '#fff',
-    borderRadius: 14,
-    padding: 14,
+  specBlock: {
     borderWidth: 1,
-    borderColor: '#E5E5EA',
-    marginBottom: 14,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.03,
-    shadowRadius: 2,
-    elevation: 1,
+    borderRadius: 0,
+    padding: 16,
+    marginBottom: 16,
   },
-  cardHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  headerLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  cardIconBox: {
-    width: 26,
-    height: 26,
-    borderRadius: 13,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  overviewCardTitle: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: '#1C1C1E',
-  },
-  streakBadge: {
-    backgroundColor: '#FFF3E0',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 8,
-  },
-  streakBadgeText: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#E65100',
-  },
-  consistencyBody: {
-    alignItems: 'center',
-    paddingVertical: 4,
-  },
-  consistencySub: {
-    fontSize: 12,
-    color: '#8E8E93',
-    marginBottom: 12,
-  },
-  pipsRow: {
-    flexDirection: 'row',
-    gap: 16,
-    marginBottom: 12,
-  },
-  pipItem: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: '#F2F2F7',
-    borderWidth: 2,
-    borderColor: '#E5E5EA',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  pipItemDone: {
-    backgroundColor: '#34C759',
-    borderColor: '#34C759',
-  },
-  pipText: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#8E8E93',
-  },
-  consistencyStatusText: {
-    fontSize: 12,
-    color: '#636366',
-    fontWeight: '500',
-  },
-  overloadHeaderHint: {
-    fontSize: 11,
-    color: '#8E8E93',
-    fontWeight: '600',
-  },
-  overloadList: {
-    gap: 8,
-  },
-  overloadItem: {
+  specHeaderRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: 8,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F2F2F7',
+    marginBottom: 8,
   },
-  overloadName: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#1C1C1E',
+  specSubtitle: {
+    marginBottom: 12,
   },
-  overloadSub: {
-    fontSize: 12,
-    color: '#8E8E93',
-    marginTop: 1,
+  consistencyPipsRow: {
+    flexDirection: 'row',
+    gap: 12,
   },
-  overloadLastReps: {
-    fontSize: 11,
-    color: '#007AFF',
-    marginTop: 2,
+  consistencyCell: {
+    flex: 1,
+    height: 48,
+    borderWidth: 1,
+    borderRadius: 0,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  overloadReadyBadge: {
+  radarList: {
+    marginTop: 8,
+  },
+  radarRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#E8F5E9',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 8,
-  },
-  overloadReadyText: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#2E7D32',
-  },
-  overloadProgressBadge: {
-    backgroundColor: '#F2F2F7',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 8,
-  },
-  overloadProgressText: {
-    fontSize: 11,
-    color: '#8E8E93',
-    fontWeight: '600',
+    justifyContent: 'space-between',
+    paddingVertical: 12,
   },
   prList: {
-    gap: 10,
+    marginTop: 8,
   },
-  prCard: {
-    backgroundColor: '#FAFAFC',
-    borderRadius: 10,
-    padding: 10,
-    borderWidth: 1,
-    borderColor: '#F2F2F7',
-  },
-  prExerciseName: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#1C1C1E',
-    marginBottom: 8,
-  },
-  prStatsGrid: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  prStatBox: {
-    flex: 1,
-  },
-  prStatLabel: {
-    fontSize: 9,
-    fontWeight: '700',
-    color: '#8E8E93',
-    letterSpacing: 0.3,
-    marginBottom: 2,
-  },
-  prStatValue: {
-    fontSize: 13,
-    fontWeight: '800',
-    color: '#1C1C1E',
-  },
-  prStatDate: {
-    fontSize: 10,
-    color: '#8E8E93',
-    marginTop: 1,
-  },
-  cardEmptyText: {
-    fontSize: 13,
-    color: '#8E8E93',
-    fontStyle: 'italic',
-    textAlign: 'center',
+  prRow: {
     paddingVertical: 12,
   },
-  timeRangeRow: {
+  prHeader: {
     flexDirection: 'row',
-    justifyContent: 'center',
-    gap: 8,
-    marginVertical: 10,
-  },
-  timeRangeBtn: {
-    paddingVertical: 5,
-    paddingHorizontal: 14,
-    borderRadius: 14,
-    backgroundColor: '#fff',
-    borderWidth: 1,
-    borderColor: '#E5E5EA',
-  },
-  timeRangeBtnActive: {
-    backgroundColor: '#007AFF',
-    borderColor: '#007AFF',
-  },
-  timeRangeText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#636366',
-  },
-  timeRangeTextActive: {
-    color: '#fff',
-    fontWeight: '700',
-  },
-  historyList: {
-    padding: 14,
-    paddingBottom: 40,
-  },
-  historyCard: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    marginBottom: 12,
-    borderWidth: 1,
-    borderColor: '#E5E5EA',
-    overflow: 'hidden',
-  },
-  historyCardActive: {
-    borderColor: '#007AFF',
-    borderWidth: 1.5,
-  },
-  historyCardHeader: {
-    flexDirection: 'row',
+    alignItems: 'center',
     justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 14,
-  },
-  historyDate: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#1C1C1E',
-  },
-  historySub: {
-    fontSize: 13,
-    color: '#8E8E93',
-    marginTop: 2,
-  },
-  headerRightRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  statusBadge: {
-    paddingHorizontal: 9,
-    paddingVertical: 4,
-    borderRadius: 8,
-  },
-  statusCompleted: {
-    backgroundColor: '#E8F5E9',
-  },
-  statusInProgress: {
-    backgroundColor: '#FFF3E0',
-  },
-  statusBadgeText: {
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  statusCompletedText: {
-    color: '#2E7D32',
-  },
-  statusInProgressText: {
-    color: '#E65100',
-  },
-  historyCardBody: {
-    borderTopWidth: 1,
-    borderTopColor: '#F2F2F7',
-    padding: 14,
-    backgroundColor: '#FAFAFC',
-  },
-  detailsLoading: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 16,
-    gap: 8,
-  },
-  detailsLoadingText: {
-    fontSize: 13,
-    color: '#8E8E93',
-  },
-  noExercisesText: {
-    fontSize: 13,
-    color: '#8E8E93',
-    fontStyle: 'italic',
-    textAlign: 'center',
-    paddingVertical: 8,
-  },
-  summaryBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#fff',
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#E5E5EA',
-    marginBottom: 12,
-    justifyContent: 'center',
-  },
-  summaryBarItem: {
-    fontSize: 13,
-    color: '#636366',
-  },
-  summaryBold: {
-    fontWeight: '700',
-    color: '#1C1C1E',
-  },
-  summaryDivider: {
-    marginHorizontal: 8,
-    color: '#C7C7CC',
-  },
-  exerciseSection: {
-    backgroundColor: '#fff',
-    padding: 12,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: '#E5E5EA',
-    marginBottom: 10,
-  },
-  exerciseSectionHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
     marginBottom: 8,
   },
-  exerciseSectionTitle: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: '#1C1C1E',
-  },
-  exerciseSectionSubtitle: {
-    fontSize: 12,
-    color: '#8E8E93',
-  },
-  setsGrid: {
+  prGridRow: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
+    justifyContent: 'space-between',
     gap: 8,
   },
-  setPill: {
-    backgroundColor: '#F2F2F7',
-    paddingVertical: 6,
-    paddingHorizontal: 10,
-    borderRadius: 8,
+  prMetric: {
+    flex: 1,
   },
-  setPillIndex: {
-    fontSize: 11,
-    color: '#8E8E93',
-    fontWeight: '600',
-    marginBottom: 2,
-  },
-  setPillValue: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#1C1C1E',
-  },
-  emptyContainer: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 60,
-    paddingHorizontal: 20,
-  },
-  emptyTitle: {
-    fontSize: 17,
-    fontWeight: '700',
-    color: '#3A3A3C',
-    marginBottom: 4,
-  },
-  emptySubtitle: {
-    fontSize: 13,
-    color: '#8E8E93',
-    textAlign: 'center',
-  },
-  dropdownWrapper: {
-    marginHorizontal: 14,
-    marginTop: 12,
-    marginBottom: 4,
-    backgroundColor: '#fff',
-    borderRadius: 12,
+  exerciseDropdownBtn: {
+    height: 52,
     borderWidth: 1,
-    borderColor: '#E5E5EA',
-    overflow: 'hidden',
-  },
-  dropdownButton: {
+    borderRadius: 0,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 14,
-    paddingVertical: 12,
-    backgroundColor: '#fff',
-  },
-  dropdownLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
-    marginRight: 10,
-  },
-  dropdownIconContainer: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: '#EBF3FF',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 12,
-  },
-  dropdownLabel: {
-    fontSize: 11,
-    color: '#8E8E93',
-    fontWeight: '600',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-    marginBottom: 2,
-  },
-  dropdownSelectedText: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#1C1C1E',
+    marginBottom: 12,
   },
   dropdownList: {
-    borderTopWidth: 1,
-    borderTopColor: '#F2F2F7',
-    backgroundColor: '#FAFAFC',
+    borderWidth: 1,
+    borderRadius: 0,
+    marginBottom: 12,
   },
-  dropdownOption: {
+  dropdownItem: {
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+  },
+  timeRangeStrip: {
+    flexDirection: 'row',
+    height: 40,
+    borderWidth: 1,
+    borderRadius: 0,
+    marginBottom: 16,
+  },
+  rangeButton: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  emptyChartBox: {
+    borderWidth: 1,
+    borderRadius: 0,
+    padding: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  chartCard: {
+    borderWidth: 1,
+    borderRadius: 0,
+    padding: 16,
+    marginBottom: 16,
+    overflow: 'hidden',
+  },
+  chartTitleRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: 13,
-    paddingHorizontal: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F2F2F7',
+    marginBottom: 14,
   },
-  dropdownOptionActive: {
-    backgroundColor: '#EFF6FF',
-  },
-  dropdownOptionText: {
-    fontSize: 15,
-    color: '#3A3A3C',
-    fontWeight: '500',
-  },
-  dropdownOptionTextActive: {
-    color: '#007AFF',
-    fontWeight: '700',
-  },
-  chartScroll: {
-    padding: 20,
-    alignItems: 'center',
-  },
-  chartTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    marginBottom: 4,
-    alignSelf: 'flex-start',
-    color: '#1C1C1E',
-  },
-  chartHeaderBlock: {
-    width: '100%',
-    marginBottom: 12,
-  },
-  chartSubtitle: {
-    fontSize: 12,
-    color: '#8E8E93',
-    marginTop: 2,
-    marginBottom: 8,
-  },
-  chartLegend: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 16,
-    marginTop: 4,
-  },
-  legendItem: {
+  legendRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
   },
-  legendIndicator: {
-    width: 12,
-    height: 12,
-    borderRadius: 3,
+  legendBox: {
+    width: 8,
+    height: 8,
+    borderRadius: 0,
   },
-  legendText: {
-    fontSize: 12,
-    color: '#636366',
-    fontWeight: '500',
-  },
-  barChartContainer: {
-    alignItems: 'center',
-    width: '100%',
-  },
-  weekDetailCard: {
-    marginTop: 14,
-    backgroundColor: '#fff',
+  historyContainer: {
     borderWidth: 1,
-    borderColor: '#E5E5EA',
-    borderRadius: 10,
-    padding: 12,
+    borderRadius: 0,
+  },
+  historyItem: {
     width: '100%',
   },
-  weekDetailHeader: {
+  historyHeaderRow: {
     flexDirection: 'row',
+    alignItems: 'center',
     justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 4,
+    paddingVertical: 14,
+    paddingHorizontal: 14,
   },
-  weekDetailTitle: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#1C1C1E',
+  historyDetails: {
+    padding: 14,
   },
-  weekDetailText: {
-    fontSize: 13,
-    color: '#636366',
+  historySetsTable: {
+    width: '100%',
   },
-  bold: {
-    fontWeight: '700',
-    color: '#1C1C1E',
-  },
-  increaseBadge: {
+  tableHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#E8F5E9',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 6,
-    gap: 4,
+    height: 28,
+    borderBottomWidth: 1,
   },
-  increaseBadgeText: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#2E7D32',
-  },
-  standardBadge: {
-    backgroundColor: '#EFF6FF',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 6,
-  },
-  standardBadgeText: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: '#007AFF',
-  },
-  chartNoData: {
-    fontSize: 13,
-    color: '#8E8E93',
-    paddingVertical: 20,
-    textAlign: 'center',
-  },
-  chartLoadingContainer: {
-    paddingVertical: 60,
+  historySetRow: {
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    gap: 10,
-  },
-  chartLoadingText: {
-    fontSize: 13,
-    color: '#8E8E93',
-  },
-  chartEmptyContainer: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 60,
-    paddingHorizontal: 20,
+    height: 40,
   },
 });
