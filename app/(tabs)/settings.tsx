@@ -332,9 +332,6 @@ export default function SettingsScreen() {
         <Text variant="label" color="primary" style={styles.cardHeading}>
           ACCENT COLOR
         </Text>
-        <Text variant="body" color="muted" style={styles.cardDescription}>
-          Select primary highlight and chart accent color.
-        </Text>
 
         <View style={styles.accentGrid}>
           {ACCENT_COLORS.map((accent) => {
@@ -350,6 +347,7 @@ export default function SettingsScreen() {
                   Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                   setAccentColor(accent);
                 }}
+                accessibilityLabel={accent}
                 style={[
                   styles.accentButton,
                   {
@@ -359,13 +357,6 @@ export default function SettingsScreen() {
                 ]}
               >
                 <View style={[styles.swatchBox, { backgroundColor: swatch }]} />
-                <Text
-                  variant="micro"
-                  color={isSelected ? 'accent' : 'muted'}
-                  style={styles.accentButtonText}
-                >
-                  {accent.toUpperCase()}
-                </Text>
               </Pressable>
             );
           })}
@@ -612,26 +603,20 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 8,
-    marginTop: 12,
+    marginTop: 10,
   },
   accentButton: {
     flexBasis: '22%',
     flexGrow: 1,
+    height: 40,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 10,
     borderWidth: 1,
     borderRadius: 2,
-    gap: 6,
   },
   swatchBox: {
-    width: 14,
-    height: 14,
+    width: 20,
+    height: 20,
     borderRadius: 2,
-  },
-  accentButtonText: {
-    fontSize: 9,
-    fontFamily: 'IBMPlexMono_600SemiBold',
-    letterSpacing: 0.5,
   },
 });

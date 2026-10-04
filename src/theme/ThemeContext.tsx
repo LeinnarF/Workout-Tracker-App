@@ -59,8 +59,10 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
         const accentFile = new File(Paths.document, ACCENT_FILE_NAME);
         if (accentFile.exists) {
           const savedAccent = await accentFile.text();
-          const trimmedAccent = savedAccent.trim() as AccentColor;
-          if (ACCENT_COLORS.includes(trimmedAccent)) {
+          const trimmedAccent = savedAccent.trim() as any;
+          if (trimmedAccent === 'magenta') {
+            setAccentColorState('purple');
+          } else if (ACCENT_COLORS.includes(trimmedAccent)) {
             setAccentColorState(trimmedAccent);
           }
         }

@@ -49,7 +49,7 @@ export type AccentColor =
   | 'green'
   | 'cyan'
   | 'yellow'
-  | 'magenta'
+  | 'purple'
   | 'red'
   | 'pink'
   | 'orange'
@@ -59,7 +59,7 @@ export const ACCENT_COLORS: AccentColor[] = [
   'green',
   'cyan',
   'yellow',
-  'magenta',
+  'purple',
   'red',
   'pink',
   'orange',
@@ -89,10 +89,10 @@ export const accentPalettes: Record<
     light: { accent: '#A67C00', accentTint: '#FFF8E1', onAccent: '#FFFFFF' },
     dark: { accent: '#FFE600', accentTint: '#332D05', onAccent: '#1A1702' },
   },
-  magenta: {
-    name: 'MAGENTA',
-    light: { accent: '#9D174D', accentTint: '#FDF2F8', onAccent: '#FFFFFF' },
-    dark: { accent: '#F43F9E', accentTint: '#330D26', onAccent: '#1A0413' },
+  purple: {
+    name: 'PURPLE',
+    light: { accent: '#7E22CE', accentTint: '#F3E8FF', onAccent: '#FFFFFF' },
+    dark: { accent: '#C084FC', accentTint: '#2E1065', onAccent: '#0F051D' },
   },
   red: {
     name: 'RED',
