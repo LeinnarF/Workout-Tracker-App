@@ -35,11 +35,11 @@ A fast, clean, and **100% offline-first** mobile workout tracker built with **Ex
 - **Expandable Workout History**: View every past session with full set breakdown (`Set 1: 50 lb × 4`), top weights lifted, and total volume.
 
 ### 4. ⏱️ Rest Timer
-- **Global Context**: Keeps running in the background while navigating across Log, Stats, and Convert tabs.
-- **Circular Progress Dial**: High-resolution vector dial (`react-native-svg`) displaying remaining time, current status (`RESTING`, `PAUSED`, `READY`), and an active progress arc.
-- **Quick Rest Presets**: One-tap buttons for `30s`, `1:00`, `1:30`, `2:00`, `2:30`, and `3:00`.
-- **Quick Extension**: Instant `+30s` button on the dial to extend rest periods mid-countdown.
-- **Screen Keep-Awake & Haptics**: Keeps your phone awake while counting down and triggers a tactile vibration alert on completion.
+- **Interactive Number Sliders (Default View)**: Set rest duration effortlessly with touch-friendly number sliders for Minutes (`0–10 min`) and Seconds (`0–55s` in 5s increments), preconfigured to `1:30` default.
+- **Circular Progress Dial (Active View)**: Automatically activates once started with an SVG vector arc dial (`react-native-svg`), live status badge (`RESTING`, `PAUSED`), and countdown digits.
+- **Quick Rest Presets**: One-tap presets (`30s`, `1:00`, `1:30`, `2:00`, `2:30`, `3:00`) that instantly synchronize the sliders.
+- **Quick Extension**: Instant `+30s` button to extend rest periods mid-countdown.
+- **Screen Keep-Awake & Haptics**: Keeps your phone awake while counting down and triggers tactile vibration alerts.
 
 ### 5. ⚖️ Weight Converter & Plate Calculator
 - **Bi-directional Conversion**: Instant real-time conversion between Pounds (lb) and Kilograms (kg).
