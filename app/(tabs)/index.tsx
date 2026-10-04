@@ -434,16 +434,7 @@ export default function LogScreen() {
                 </View>
               </Pressable>
 
-              {/* Collapsed mini set indicator row */}
-              {!isExpanded && exSets.length > 0 && (
-                <View style={[styles.collapsedSetsSummary, { borderTopColor: colors.outline }]}>
-                  {exSets.map((s, i) => (
-                    <Text key={s.id} variant="micro" color="muted">
-                      S{i + 1}: {s.weight_lb}LB × {s.reps}
-                    </Text>
-                  ))}
-                </View>
-              )}
+
 
               {/* Expanded Ticket View */}
               {isExpanded && (
@@ -589,14 +580,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 8,
   },
-  collapsedSetsSummary: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 12,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderTopWidth: 1,
-  },
+
   expandedTicket: {
     padding: 16,
     borderTopWidth: 1,
