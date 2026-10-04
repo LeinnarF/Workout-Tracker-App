@@ -178,10 +178,12 @@ export default function TimerScreen() {
 
   const displayMs = isTimerActive ? timeRemainingMs : selectedDurationMs;
 
-  // Segmented block bar calculation
+  // Segmented block bar calculation (starts empty, fills as time elapses)
   const progressRatio = isTimerActive && initialDurationMs > 0
-    ? Math.min(1, Math.max(0, timeRemainingMs / initialDurationMs))
-    : 1;
+    ? Math.min(1, Math.max(0, (initialDurationMs - timeRemainingMs) / initialDurationMs))
+    : hasFinished
+    ? 1
+    : 0;
   const activeSegments = Math.round(progressRatio * TOTAL_SEGMENTS);
 
   const statusLabel = isRunning
