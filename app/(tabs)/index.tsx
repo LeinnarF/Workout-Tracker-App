@@ -30,6 +30,7 @@ import {
 import { suggestNext, ProgressionSuggestion } from '../../src/logic/suggestNext';
 import { ExerciseModal } from '../../src/components/ExerciseModal';
 import { ExerciseActionModal } from '../../src/components/ExerciseActionModal';
+import { FinishWorkoutModal } from '../../src/components/FinishWorkoutModal';
 import { useTheme } from '../../src/theme/useTheme';
 import {
   Screen,
@@ -69,6 +70,7 @@ export default function LogScreen() {
   const [exerciseModalVisible, setExerciseModalVisible] = useState(false);
   const [editingExercise, setEditingExercise] = useState<Exercise | null>(null);
   const [actionModalExercise, setActionModalExercise] = useState<Exercise | null>(null);
+  const [finishModalVisible, setFinishModalVisible] = useState(false);
 
   const loadData = useCallback(async () => {
     try {
@@ -216,23 +218,17 @@ export default function LogScreen() {
 
   const handleFinishWorkout = () => {
     if (!session) return;
-    Alert.alert(
-      'FINISH WORKOUT',
-      'Save and finalize this session in your training history?',
-      [
-        { text: 'CANCEL', style: 'cancel' },
-        {
-          text: 'FINISH',
-          onPress: async () => {
-            await finishSession(db, session.id);
-            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-            setSession(null);
-            setSets([]);
-            setSelectedExerciseId(null);
-          },
-        },
-      ]
-    );
+    setFinishModalVisible(true);
+  };
+
+  const handleConfirmFinish = async () => {
+    if (!session) return;
+    await finishSession(db, session.id);
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    setSession(null);
+    setSets([]);
+    setSelectedExerciseId(null);
+    setFinishModalVisible(false);
   };
 
   const handleExerciseLongPress = (ex: Exercise) => {
@@ -514,6 +510,14 @@ export default function LogScreen() {
           }
           loadData();
         }}
+      />
+
+      <FinishWorkoutModal
+        visible={finishModalVisible}
+        totalSets={sets.length}
+        totalVolumeLb={sets.reduce((acc, s) => acc + s.weight_lb * s.reps, 0)}
+        onClose={() => setFinishModalVisible(false)}
+        onConfirm={handleConfirmFinish}
       />
     </Screen>
   );
