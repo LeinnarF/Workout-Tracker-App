@@ -17,26 +17,22 @@ import { useTheme } from '../../src/theme/useTheme';
 import { Screen, Text, Rule } from '../../src/components/ui';
 
 const BARBELL_MILESTONES = [
-  { lb: 45, label: 'EMPTY BAR' },
-  { lb: 135, label: '1 PLATE' },
-  { lb: 185, label: '1 PL + 25' },
-  { lb: 225, label: '2 PLATES' },
-  { lb: 275, label: '2 PL + 25' },
-  { lb: 315, label: '3 PLATES' },
-  { lb: 405, label: '4 PLATES' },
+  { lb: 50, label: '25 / SIDE' },
+  { lb: 90, label: '1 PLATE' },
+  { lb: 140, label: '1 PL + 25' },
+  { lb: 180, label: '2 PLATES' },
+  { lb: 230, label: '2 PL + 25' },
+  { lb: 270, label: '3 PLATES' },
+  { lb: 360, label: '4 PLATES' },
 ];
 
-function getPlateBreakdown(totalLb: number): {
-  bar: number;
+function getPlateBreakdown(totalPlateLb: number): {
   perSideLoad: number;
   perSide: { weight: number; count: number }[];
   remainder: number;
 } | null {
-  if (isNaN(totalLb) || totalLb < 45) return null;
-  const perSideLoad = (totalLb - 45) / 2;
-  if (perSideLoad === 0) {
-    return { bar: 45, perSideLoad: 0, perSide: [], remainder: 0 };
-  }
+  if (isNaN(totalPlateLb) || totalPlateLb <= 0) return null;
+  const perSideLoad = totalPlateLb / 2;
   const plateSizes = [45, 35, 25, 10, 5, 2.5];
   let remaining = perSideLoad;
   const perSide: { weight: number; count: number }[] = [];
@@ -48,7 +44,7 @@ function getPlateBreakdown(totalLb: number): {
       remaining = Math.round((remaining - count * plate) * 10) / 10;
     }
   }
-  return { bar: 45, perSideLoad, perSide, remainder: remaining };
+  return { perSideLoad, perSide, remainder: remaining };
 }
 
 export default function ConvertScreen() {
@@ -125,7 +121,7 @@ export default function ConvertScreen() {
   };
 
   const currentLb = primaryUnit === 'LB' ? parseFloat(val1) : parseFloat(val2);
-  const plateInfo = !isNaN(currentLb) && currentLb >= 45 ? getPlateBreakdown(currentLb) : null;
+  const plateInfo = !isNaN(currentLb) && currentLb > 0 ? getPlateBreakdown(currentLb) : null;
 
   const unit1 = primaryUnit;
   const unit2 = primaryUnit === 'LB' ? 'KG' : 'LB';
@@ -244,7 +240,7 @@ export default function ConvertScreen() {
         {/* Barbell Plate Spec Sheet */}
         <View style={[styles.card, { borderColor: colors.outline, backgroundColor: colors.surface }]}>
           <Text variant="label" color="primary" style={styles.specTitle}>
-            BARBELL PLATE LOAD (45 LB BAR)
+            BARBELL PLATE LOAD
           </Text>
 
           {plateInfo ? (
@@ -260,7 +256,7 @@ export default function ConvertScreen() {
 
               {plateInfo.perSide.length === 0 ? (
                 <Text variant="label" color="muted" style={styles.emptyPlateText}>
-                  EMPTY 45 LB BAR (NO PLATES REQUIRED)
+                  LOAD IS LESS THAN MINIMUM 2.5 LB PLATE PER SIDE
                 </Text>
               ) : (
                 plateInfo.perSide.map((p) => (
@@ -291,7 +287,7 @@ export default function ConvertScreen() {
             </View>
           ) : (
             <Text variant="label" color="muted" style={styles.emptyPlateText}>
-              ENTER 45 LB OR HIGHER TO CALCULATE PLATES PER SIDE.
+              ENTER WEIGHT TO CALCULATE PLATES PER SIDE.
             </Text>
           )}
         </View>
@@ -299,7 +295,7 @@ export default function ConvertScreen() {
         {/* Barbell Milestones Grid (Square Chips) */}
         <View style={[styles.card, { borderColor: colors.outline, backgroundColor: colors.surface }]}>
           <Text variant="label" color="primary" style={styles.specTitle}>
-            BARBELL MILESTONES
+            BARBELL PLATE MILESTONES
           </Text>
 
           <View style={styles.milestoneGrid}>
