@@ -393,17 +393,12 @@ export default function LogScreen() {
                 ]}
               >
                 <View style={styles.exerciseHeaderLeft}>
-                  <Text variant="label" color="muted" style={styles.indexNum}>
-                    {(index + 1).toString().padStart(2, '0')}
+                  <Text variant="title" color="primary">
+                    {ex.name}
                   </Text>
-                  <View>
-                    <Text variant="title" color="primary">
-                      {ex.name}
-                    </Text>
-                    <Text variant="label" color="muted">
-                      {ex.target_sets} × {ex.rep_min}-{ex.rep_max} REPS
-                    </Text>
-                  </View>
+                  <Text variant="label" color="muted">
+                    {ex.target_sets} × {ex.rep_min}-{ex.rep_max} REPS
+                  </Text>
                 </View>
 
                 <View style={styles.exerciseHeaderRight}>
@@ -569,13 +564,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
   },
   exerciseHeaderLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
     flex: 1,
-  },
-  indexNum: {
-    width: 24,
   },
   exerciseHeaderRight: {
     flexDirection: 'row',
