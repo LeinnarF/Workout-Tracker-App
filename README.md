@@ -35,9 +35,9 @@ A fast, clean, and **100% offline-first** mobile workout tracker built with **Ex
 - **Expandable Workout History**: View every past session with full set breakdown (`Set 1: 50 lb × 4`), top weights lifted, and total volume.
 
 ### 4. ⏱️ Rest Timer
-- **Interactive Number Sliders (Default View)**: Set rest duration effortlessly with touch-friendly number sliders for Minutes (`0–10 min`) and Seconds (`0–55s` in 5s increments), preconfigured to `1:30` default.
+- **Odometer Scrolling Wheel Picker (Default View)**: Select rest duration by scrolling vertical number drums for Minutes (`0–15 min`) and Seconds (`0–55s` in 5s increments), preconfigured to `1:30` default with tactile haptic feedback.
 - **Circular Progress Dial (Active View)**: Automatically activates once started with an SVG vector arc dial (`react-native-svg`), live status badge (`RESTING`, `PAUSED`), and countdown digits.
-- **Quick Rest Presets**: One-tap presets (`30s`, `1:00`, `1:30`, `2:00`, `2:30`, `3:00`) that instantly synchronize the sliders.
+- **Quick Rest Presets**: One-tap presets (`30s`, `1:00`, `1:30`, `2:00`, `2:30`, `3:00`) that visually spin and roll the odometer wheels into place.
 - **Quick Extension**: Instant `+30s` button to extend rest periods mid-countdown.
 - **Screen Keep-Awake & Haptics**: Keeps your phone awake while counting down and triggers tactile vibration alerts.
 
