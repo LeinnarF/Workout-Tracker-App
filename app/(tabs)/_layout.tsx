@@ -124,9 +124,9 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
-        name="stats"
+        name="timer"
         options={{
-          title: 'Stats',
+          title: 'Timer',
         }}
       />
       <Tabs.Screen
@@ -136,9 +136,9 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
-        name="timer"
+        name="stats"
         options={{
-          title: 'Timer',
+          title: 'Stats',
         }}
       />
       <Tabs.Screen
