@@ -10,10 +10,11 @@ import { File, Paths } from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
 import * as DocumentPicker from 'expo-document-picker';
 import * as Haptics from 'expo-haptics';
-import { Share2, Download, Upload, ChevronRight, ShieldCheck, Trash2 } from 'lucide-react-native';
+import { Share2, Download, Upload, ChevronRight, ShieldCheck, Trash2, Database } from 'lucide-react-native';
 
 import { Session, Exercise, SetRecord } from '../../src/db/types';
 import { ensurePresetExercises } from '../../src/db/queries';
+import { seedDemoData } from '../../src/db/seedDemoData';
 import { useTheme } from '../../src/theme/useTheme';
 import { Screen, Text, Rule } from '../../src/components/ui';
 
@@ -262,6 +263,28 @@ export default function SettingsScreen() {
     );
   };
 
+  const handleLoadDemoData = () => {
+    Alert.alert(
+      'LOAD SAMPLE DATA',
+      'Populate 4 weeks of realistic workout sessions to preview Stats, Charts, and History? You can clear this anytime using Clear Data.',
+      [
+        { text: 'CANCEL', style: 'cancel' },
+        {
+          text: 'LOAD DATA',
+          onPress: async () => {
+            try {
+              await seedDemoData(db);
+              Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+              Alert.alert('SUCCESS', 'Sample workout data loaded. Head over to the Stats tab to view the charts and history!');
+            } catch (err) {
+              Alert.alert('ERROR', 'Failed to load sample data: ' + String(err));
+            }
+          },
+        },
+      ]
+    );
+  };
+
   return (
     <Screen title="SETTINGS">
       {/* Theme / Appearance Spec Box */}
@@ -371,6 +394,27 @@ export default function SettingsScreen() {
               </Text>
               <Text variant="micro" color="muted">
                 REPLACE CURRENT DATA FROM FILE
+              </Text>
+            </View>
+          </View>
+          <ChevronRight size={18} color={colors.textMuted} strokeWidth={1.75} />
+        </Pressable>
+
+        <Rule style={{ marginVertical: 10 }} />
+
+        {/* Action: Load Sample Data */}
+        <Pressable
+          onPress={handleLoadDemoData}
+          style={styles.actionRow}
+        >
+          <View style={styles.actionLeft}>
+            <Database size={18} color={colors.text} strokeWidth={1.75} />
+            <View>
+              <Text variant="title" color="primary">
+                LOAD SAMPLE DATA
+              </Text>
+              <Text variant="micro" color="muted">
+                SEED 4 WEEKS OF WORKOUTS TO PREVIEW STATS
               </Text>
             </View>
           </View>
