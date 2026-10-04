@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Modal, View, Text, FlatList, TouchableOpacity, TextInput, StyleSheet, SafeAreaView, Button } from 'react-native';
+import { Modal, View, Text, FlatList, TouchableOpacity, TextInput, StyleSheet, Button } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useSQLiteContext } from 'expo-sqlite';
 import { Exercise } from '../db/types';
 import { getExercises, addExercise } from '../db/queries';

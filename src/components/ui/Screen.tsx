@@ -1,12 +1,12 @@
 import React from 'react';
 import {
-  SafeAreaView,
   ScrollView,
   View,
   StyleSheet,
   ViewStyle,
   StatusBar,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTheme } from '../../theme/useTheme';
 import { Text } from './Text';
 

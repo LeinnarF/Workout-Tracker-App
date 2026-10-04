@@ -3,13 +3,13 @@ import {
   Modal,
   View,
   StyleSheet,
-  SafeAreaView,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
   Alert,
   Pressable,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { X } from 'lucide-react-native';
 import { Exercise } from '../db/types';
 import { useTheme } from '../theme/useTheme';
