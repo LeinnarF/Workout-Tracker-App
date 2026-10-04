@@ -240,6 +240,10 @@ export default function LogScreen() {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       const updatedSets = await getSetsForSession(db, session.id);
       setSets(updatedSets);
+      if (updatedSets.length === 0) {
+        await db.runAsync('DELETE FROM sessions WHERE id = ?', [session.id]);
+        setSession(null);
+      }
     } catch (e) {
       Alert.alert('Error', 'Failed to delete set: ' + String(e));
     }

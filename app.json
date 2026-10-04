@@ -8,9 +8,13 @@
     "scheme": "gymapp",
     "userInterfaceStyle": "automatic",
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.leinnarf.gymapp",
+      "buildNumber": "1"
     },
     "android": {
+      "package": "com.leinnarf.gymapp",
+      "versionCode": 1,
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/images/android-icon-foreground.png",

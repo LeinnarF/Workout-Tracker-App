@@ -150,13 +150,10 @@ export function TimerProvider({ children }: { children: React.ReactNode }) {
   };
 
   const addTime = (additionalMs: number) => {
-    setTimeRemainingMs((prev) => {
-      const next = prev + additionalMs;
-      if (isRunningRef.current) {
-        setTargetTime(Date.now() + next);
-      }
-      return next;
-    });
+    if (isRunningRef.current) {
+      setTargetTime((prev) => (prev !== null ? prev + additionalMs : Date.now() + additionalMs));
+    }
+    setTimeRemainingMs((prev) => prev + additionalMs);
     setInitialDurationMs((prev) => Math.max(prev, prev + additionalMs));
   };
 

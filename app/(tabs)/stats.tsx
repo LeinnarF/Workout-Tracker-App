@@ -5,10 +5,12 @@ import {
   ActivityIndicator,
   useWindowDimensions,
   Pressable,
+  Alert,
 } from 'react-native';
 import { useSQLiteContext } from 'expo-sqlite';
 import { useFocusEffect } from 'expo-router';
-import { ChevronDown, ChevronUp, ChevronRight, Check } from 'lucide-react-native';
+import * as Haptics from 'expo-haptics';
+import { ChevronDown, ChevronUp, ChevronRight, Check, Trash2 } from 'lucide-react-native';
 import { LineChart, BarChart } from 'react-native-gifted-charts';
 
 import {
@@ -32,7 +34,7 @@ import {
 } from '../../src/db/types';
 import { getExercises } from '../../src/db/queries';
 import { useTheme } from '../../src/theme/useTheme';
-import { Screen, Text, Badge, Rule } from '../../src/components/ui';
+import { Screen, Text, Badge, Rule, Button } from '../../src/components/ui';
 
 const TIME_RANGES: { label: string; value: TimeRange }[] = [
   { label: '4W', value: '4W' },
@@ -47,6 +49,7 @@ interface GroupedSetItem {
   weight_lb: number;
   reps: number;
   setCount: number;
+  repsList: number[];
 }
 
 function groupSessionSets(sets: (SetRecord & { exercise_name: string })[]): GroupedSetItem[] {
@@ -56,7 +59,7 @@ function groupSessionSets(sets: (SetRecord & { exercise_name: string })[]): Grou
     {
       exercise_name: string;
       weightOrder: number[];
-      weights: Map<number, { weight_lb: number; reps: number; setCount: number }>;
+      weights: Map<number, { weight_lb: number; reps: number; setCount: number; repsList: number[] }>;
     }
   >();
 
@@ -77,11 +80,13 @@ function groupSessionSets(sets: (SetRecord & { exercise_name: string })[]): Grou
         weight_lb: set.weight_lb,
         reps: set.reps,
         setCount: 1,
+        repsList: [set.reps],
       });
     } else {
       const wEntry = exEntry.weights.get(set.weight_lb)!;
       wEntry.reps += set.reps;
       wEntry.setCount += 1;
+      wEntry.repsList.push(set.reps);
     }
   }
 
@@ -96,6 +101,7 @@ function groupSessionSets(sets: (SetRecord & { exercise_name: string })[]): Grou
         weight_lb: wEntry.weight_lb,
         reps: wEntry.reps,
         setCount: wEntry.setCount,
+        repsList: wEntry.repsList,
       });
     }
   }
@@ -132,6 +138,7 @@ export default function StatsScreen() {
   const [loadingChart, setLoadingChart] = useState(false);
   const [chartData, setChartData] = useState<DailyStat[]>([]);
   const [weeklyData, setWeeklyData] = useState<WeeklyRepStat[]>([]);
+  const [chartMetric, setChartMetric] = useState<'weight' | 'reps'>('weight');
 
   const loadOverview = useCallback(async () => {
     setLoadingOverview(true);
@@ -223,6 +230,38 @@ export default function StatsScreen() {
     }
   };
 
+  const handleDeleteSession = (sessionId: number) => {
+    Alert.alert(
+      'DELETE WORKOUT',
+      'Are you sure you want to delete this workout from your history? All logged sets for this session will be permanently removed.',
+      [
+        { text: 'CANCEL', style: 'cancel' },
+        {
+          text: 'DELETE',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await db.runAsync('DELETE FROM sets WHERE session_id = ?', [sessionId]);
+              await db.runAsync('DELETE FROM sessions WHERE id = ?', [sessionId]);
+              Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+              setExpandedSessionId(null);
+              setSessionDetails((prev) => {
+                const next = { ...prev };
+                delete next[sessionId];
+                return next;
+              });
+              await loadHistory();
+              await loadOverview();
+              await loadExercises();
+            } catch (err) {
+              Alert.alert('ERROR', 'Failed to delete workout: ' + String(err));
+            }
+          },
+        },
+      ]
+    );
+  };
+
   const selectedExerciseObj = exercises.find((e) => e.id === selectedEx);
   const targetSets = selectedExerciseObj?.target_sets ?? 3;
   const repMax = selectedExerciseObj?.rep_max ?? 10;
@@ -231,18 +270,19 @@ export default function StatsScreen() {
   const chartWidth = Math.max(260, windowWidth - 64);
 
   const isPureBodyweight = chartData.length > 0 && chartData.every((d) => d.bestWeight === 0);
+  const activeMetric = isPureBodyweight ? 'reps' : chartMetric;
+  const isRepsMetric = activeMetric === 'reps';
 
   // Map daily chart data for LineChart
-  // If pure bodyweight (all sessions at 0 lbs), line 1 is Top Set Reps and line 2 is Avg Set Reps
   const linePoints1 = chartData.map((d) => ({
-    value: isPureBodyweight
+    value: isRepsMetric
       ? Math.max(...(d.setReps && d.setReps.length > 0 ? d.setReps : [0]))
       : d.bestE1rm,
     label: d.date.slice(5),
   }));
 
   const linePoints2 = chartData.map((d) => ({
-    value: isPureBodyweight
+    value: isRepsMetric
       ? Math.round((d.totalReps / Math.max(1, d.setReps?.length || 1)) * 10) / 10
       : d.bestWeight,
     label: d.date.slice(5),
@@ -255,6 +295,12 @@ export default function StatsScreen() {
   );
 
   // Map daily chart data for Rep Count BarChart
+  const maxSessionReps = Math.max(
+    maxTargetReps,
+    ...chartData.map((d) => d.totalReps),
+    1
+  );
+
   const dailyRepBarData = chartData.map((d) => {
     const isOverload =
       d.totalReps >= maxTargetReps ||
@@ -263,7 +309,7 @@ export default function StatsScreen() {
         d.setReps.slice(0, targetSets).every((r) => r >= repMax));
 
     return {
-      value: Math.min(d.totalReps, maxTargetReps),
+      value: d.totalReps,
       actualReps: d.totalReps,
       label: d.date.slice(5),
       frontColor: isOverload ? colors.accent : colors.raised,
@@ -283,7 +329,7 @@ export default function StatsScreen() {
     };
   });
 
-  const dailyRepSections = maxTargetReps % 4 === 0 ? 4 : maxTargetReps % 3 === 0 ? 3 : 2;
+  const dailyRepSections = maxSessionReps % 4 === 0 ? 4 : maxSessionReps % 3 === 0 ? 3 : 2;
 
   // Map weekly data for BarChart
   const weeklyBarData = weeklyData.map((w) => ({
@@ -524,7 +570,7 @@ export default function StatsScreen() {
                         </View>
                         <View style={styles.prMetric}>
                           <Text variant="micro" color="muted">
-                            EST. 1RM
+                            {pr.bestE1rm === 0 ? 'MAX REPS' : 'EST. 1RM'}
                           </Text>
                           <Text
                             variant="numeral"
@@ -533,7 +579,7 @@ export default function StatsScreen() {
                             numberOfLines={1}
                             adjustsFontSizeToFit
                           >
-                            {pr.bestE1rm === 0 ? 'BW' : `${pr.bestE1rm} LB`}
+                            {pr.bestE1rm === 0 ? `${pr.maxReps} REPS` : `${pr.bestE1rm} LB`}
                           </Text>
                         </View>
                         <View style={styles.prMetric}>
@@ -655,18 +701,58 @@ export default function StatsScreen() {
             <>
               {/* E1RM and Weight Progress Line Chart OR Bodyweight Rep Progression */}
               <View style={[styles.chartCard, { borderColor: colors.outline, backgroundColor: colors.surface }]}>
+                {/* Metric Mode Toggle: Show when not forced by pure bodyweight */}
+                {!isPureBodyweight && (
+                  <View style={[styles.metricToggleStrip, { borderColor: colors.outline }]}>
+                    <Pressable
+                      onPress={() => setChartMetric('weight')}
+                      style={[
+                        styles.metricToggleBtn,
+                        {
+                          backgroundColor: activeMetric === 'weight' ? colors.raised : colors.surface,
+                          borderRightWidth: 1,
+                          borderRightColor: colors.outline,
+                        },
+                      ]}
+                    >
+                      <Text
+                        variant="label"
+                        color={activeMetric === 'weight' ? 'accent' : 'muted'}
+                      >
+                        WEIGHT / 1RM
+                      </Text>
+                    </Pressable>
+                    <Pressable
+                      onPress={() => setChartMetric('reps')}
+                      style={[
+                        styles.metricToggleBtn,
+                        {
+                          backgroundColor: activeMetric === 'reps' ? colors.raised : colors.surface,
+                        },
+                      ]}
+                    >
+                      <Text
+                        variant="label"
+                        color={activeMetric === 'reps' ? 'accent' : 'muted'}
+                      >
+                        REPS / SET
+                      </Text>
+                    </Pressable>
+                  </View>
+                )}
+
                 <View style={styles.chartTitleRow}>
                   <Text variant="label" color="primary">
-                    {isPureBodyweight ? 'MAX REPS & AVG REPS / SET' : 'EST. 1RM & TOP WEIGHT (LB)'}
+                    {isRepsMetric ? 'MAX REPS & AVG REPS / SET' : 'EST. 1RM & TOP WEIGHT (LB)'}
                   </Text>
                   <View style={styles.legendRow}>
                     <View style={[styles.legendBox, { backgroundColor: colors.accent }]} />
                     <Text variant="micro" color="muted">
-                      {isPureBodyweight ? 'MAX' : '1RM'}
+                      {isRepsMetric ? 'MAX' : '1RM'}
                     </Text>
                     <View style={[styles.legendBox, { backgroundColor: colors.textMuted }]} />
                     <Text variant="micro" color="muted">
-                      {isPureBodyweight ? 'AVG' : 'TOP'}
+                      {isRepsMetric ? 'AVG' : 'TOP'}
                     </Text>
                   </View>
                 </View>
@@ -677,7 +763,7 @@ export default function StatsScreen() {
                   width={chartWidth}
                   height={180}
                   maxValue={
-                    isPureBodyweight
+                    isRepsMetric
                       ? Math.max(maxLinePointValue + 2, repMax, 10)
                       : maxLinePointValue > 0
                       ? undefined
@@ -734,7 +820,7 @@ export default function StatsScreen() {
                     rulesColor={colors.outline}
                     xAxisColor={colors.outline}
                     yAxisColor={colors.outline}
-                    maxValue={maxTargetReps}
+                    maxValue={maxSessionReps}
                     noOfSections={dailyRepSections}
                     showReferenceLine1={true}
                     referenceLine1Position={maxTargetReps}
@@ -771,7 +857,6 @@ export default function StatsScreen() {
                     <Text variant="label" color="primary">
                       WEEKLY TOTAL REPS
                     </Text>
-                    <Badge label="GREEN = OVERLOAD" variant="neutral" />
                   </View>
 
                   <BarChart
@@ -829,7 +914,8 @@ export default function StatsScreen() {
                   weekday: 'short',
                   month: 'short',
                   day: 'numeric',
-                });
+                  year: 'numeric',
+                }).toUpperCase();
 
                 return (
                   <View
@@ -850,20 +936,32 @@ export default function StatsScreen() {
                         isExpanded && { backgroundColor: colors.raised },
                       ]}
                     >
-                      <View>
-                        <Text variant="label" color="muted">
-                          {dateStr}
-                        </Text>
+                      <View style={{ flex: 1 }}>
                         <Text variant="title" color="primary">
-                          SESSION {sess.id.toString().padStart(2, '0')}
+                          {dateStr}
                         </Text>
                       </View>
 
-                      {isExpanded ? (
-                        <ChevronUp size={18} color={colors.text} strokeWidth={1.75} />
-                      ) : (
-                        <ChevronRight size={18} color={colors.textMuted} strokeWidth={1.75} />
-                      )}
+                      <View style={styles.historyHeaderRight}>
+                        {isExpanded && (
+                          <Pressable
+                            onPress={(e) => {
+                              e.stopPropagation();
+                              handleDeleteSession(sess.id);
+                            }}
+                            hitSlop={10}
+                            style={styles.headerTrashBtn}
+                            accessibilityLabel="Delete workout session"
+                          >
+                            <Trash2 size={16} color={colors.textMuted} strokeWidth={1.75} />
+                          </Pressable>
+                        )}
+                        {isExpanded ? (
+                          <ChevronUp size={18} color={colors.text} strokeWidth={1.75} />
+                        ) : (
+                          <ChevronRight size={18} color={colors.textMuted} strokeWidth={1.75} />
+                        )}
+                      </View>
                     </Pressable>
 
                     {isExpanded && (
@@ -877,50 +975,66 @@ export default function StatsScreen() {
                             NO SETS RECORDED.
                           </Text>
                         ) : (
-                          <View style={styles.historySetsTable}>
-                            <View style={[styles.tableHeader, { borderBottomColor: colors.outline }]}>
-                              <Text variant="label" color="muted" style={{ width: 120 }}>
-                                EXERCISE
-                              </Text>
-                              <Text variant="label" color="muted" style={{ flex: 1, textAlign: 'right', paddingRight: 16 }}>
-                                WEIGHT
-                              </Text>
-                              <Text variant="label" color="muted" style={{ width: 60, textAlign: 'right' }}>
-                                REPS
-                              </Text>
-                            </View>
-
-                            {groupSessionSets(details).map((s, sIdx, arr) => (
-                              <View
-                                key={s.id}
-                                style={[
-                                  styles.historySetRow,
-                                  {
-                                    borderBottomColor: colors.outline,
-                                    borderBottomWidth: sIdx === arr.length - 1 ? 0 : 1,
-                                  },
-                                ]}
-                              >
-                                <Text variant="label" color="primary" style={{ width: 120 }} numberOfLines={1}>
-                                  {s.exercise_name}
+                          <>
+                            <View style={styles.historySetsTable}>
+                              <View style={[styles.tableHeader, { borderBottomColor: colors.outline }]}>
+                                <Text variant="label" color="muted" style={{ flex: 1 }}>
+                                  EXERCISE
                                 </Text>
-                                <Text
-                                  variant="numeral"
-                                  color="primary"
-                                  style={[styles.historyNum, { flex: 1, textAlign: 'right', paddingRight: 16 }]}
-                                >
-                                  {s.weight_lb} LB
+                                <Text variant="label" color="muted" style={{ width: 80, textAlign: 'right', paddingRight: 12 }}>
+                                  WEIGHT
                                 </Text>
-                                <Text
-                                  variant="numeral"
-                                  color="primary"
-                                  style={[styles.historyNum, { width: 60, textAlign: 'right' }]}
-                                >
-                                  {s.reps}
+                                <Text variant="label" color="muted" style={{ width: 80, textAlign: 'right' }}>
+                                  REPS
                                 </Text>
                               </View>
-                            ))}
-                          </View>
+
+                              {groupSessionSets(details).map((s, sIdx, arr) => (
+                                <View
+                                  key={s.id}
+                                  style={[
+                                    styles.historySetRow,
+                                    {
+                                      borderBottomColor: colors.outline,
+                                      borderBottomWidth: sIdx === arr.length - 1 ? 0 : 1,
+                                    },
+                                  ]}
+                                >
+                                  <Text variant="label" color="primary" style={{ flex: 1 }} numberOfLines={1}>
+                                    {s.exercise_name}
+                                  </Text>
+                                  <Text
+                                    variant="numeral"
+                                    color="primary"
+                                    style={[styles.historyNum, { width: 80, textAlign: 'right', paddingRight: 12 }]}
+                                    numberOfLines={1}
+                                    adjustsFontSizeToFit
+                                  >
+                                    {s.weight_lb === 0 ? 'BW' : `${s.weight_lb} LB`}
+                                  </Text>
+                                  <Text
+                                    variant="numeral"
+                                    color="primary"
+                                    style={[styles.historyNum, { width: 80, textAlign: 'right' }]}
+                                    numberOfLines={1}
+                                    adjustsFontSizeToFit
+                                  >
+                                    {s.repsList.join(',')}
+                                  </Text>
+                                </View>
+                              ))}
+                            </View>
+
+                            <View style={styles.deleteSessionFooter}>
+                              <Rule variant="dashed" style={{ marginVertical: 12 }} />
+                              <Button
+                                label="DELETE SESSION"
+                                variant="secondary"
+                                icon={<Trash2 size={16} color={colors.textMuted} strokeWidth={1.75} />}
+                                onPress={() => handleDeleteSession(sess.id)}
+                              />
+                            </View>
+                          </>
                         )}
                       </View>
                     )}
@@ -1123,5 +1237,29 @@ const styles = StyleSheet.create({
   historyNum: {
     fontSize: 13,
     lineHeight: 20,
+  },
+  metricToggleStrip: {
+    flexDirection: 'row',
+    height: 34,
+    borderWidth: 1,
+    borderRadius: 0,
+    marginBottom: 14,
+  },
+  metricToggleBtn: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  historyHeaderRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  headerTrashBtn: {
+    padding: 4,
+  },
+  deleteSessionFooter: {
+    width: '100%',
+    marginTop: 4,
   },
 });

@@ -56,6 +56,8 @@ export interface ExercisePR {
   heaviestWeightDate: string;
   bestE1rm: number;
   bestE1rmDate: string;
+  maxReps: number;
+  maxRepsDate: string;
   maxSessionVolume: number;
   maxSessionVolumeDate: string;
 }

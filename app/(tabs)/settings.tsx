@@ -36,7 +36,7 @@ export default function SettingsScreen() {
       const sets = await db.getAllAsync<SetRecord>('SELECT * FROM sets');
 
       const data = {
-        version: 3,
+        version: 4,
         exported_at: new Date().toISOString(),
         exercises,
         sessions,
@@ -140,8 +140,13 @@ export default function SettingsScreen() {
                   `);
 
                   for (const ex of data.exercises) {
+                    const tagsVal = ex.tags
+                      ? typeof ex.tags === 'string'
+                        ? ex.tags
+                        : JSON.stringify(ex.tags)
+                      : null;
                     await db.runAsync(
-                      'INSERT INTO exercises (id, name, rep_min, rep_max, target_sets, increment_lb, default_weight_lb, archived, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+                      'INSERT INTO exercises (id, name, rep_min, rep_max, target_sets, increment_lb, default_weight_lb, tags, archived, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
                       [
                         ex.id,
                         ex.name,
@@ -150,6 +155,7 @@ export default function SettingsScreen() {
                         ex.target_sets,
                         ex.increment_lb,
                         ex.default_weight_lb ?? null,
+                        tagsVal,
                         ex.archived,
                         ex.created_at,
                       ]

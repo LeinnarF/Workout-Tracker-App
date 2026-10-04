@@ -212,6 +212,8 @@ export async function getExercisePRs(
       heaviestWeightDate: string;
       bestE1rm: number;
       bestE1rmDate: string;
+      maxReps: number;
+      maxRepsDate: string;
       sessionVolumes: Record<string, number>;
     }
   > = {};
@@ -229,6 +231,8 @@ export async function getExercisePRs(
         heaviestWeightDate: dateStr,
         bestE1rm: e1rm,
         bestE1rmDate: dateStr,
+        maxReps: r.reps,
+        maxRepsDate: dateStr,
         sessionVolumes: {},
       };
     }
@@ -243,6 +247,11 @@ export async function getExercisePRs(
     if (e1rm >= ex.bestE1rm) {
       ex.bestE1rm = Math.round(e1rm);
       ex.bestE1rmDate = dateStr;
+    }
+
+    if (r.reps >= ex.maxReps) {
+      ex.maxReps = r.reps;
+      ex.maxRepsDate = dateStr;
     }
 
     ex.sessionVolumes[sessionKey] =
@@ -267,6 +276,8 @@ export async function getExercisePRs(
       heaviestWeightDate: ex.heaviestWeightDate,
       bestE1rm: ex.bestE1rm,
       bestE1rmDate: ex.bestE1rmDate,
+      maxReps: ex.maxReps,
+      maxRepsDate: ex.maxRepsDate,
       maxSessionVolume,
       maxSessionVolumeDate,
     };

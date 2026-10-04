@@ -48,27 +48,27 @@ CREATE TABLE sets (
 
 CREATE INDEX idx_sets_exercise ON sets(exercise_id, session_id);
 
-INSERT INTO exercises (name, created_at) VALUES 
-  ('Dips', CURRENT_TIMESTAMP),
-  ('Pull ups', CURRENT_TIMESTAMP),
-  ('Overhead Press', CURRENT_TIMESTAMP),
-  ('Barbell Row', CURRENT_TIMESTAMP),
-  ('Farmer''s Carry', CURRENT_TIMESTAMP),
-  ('Bulgarian Split Squat', CURRENT_TIMESTAMP),
-  ('Romanian Deadlift', CURRENT_TIMESTAMP);
+INSERT INTO exercises (name, default_weight_lb, created_at) VALUES 
+  ('Dips', 0, CURRENT_TIMESTAMP),
+  ('Pull ups', 0, CURRENT_TIMESTAMP),
+  ('Overhead Press', 45, CURRENT_TIMESTAMP),
+  ('Barbell Row', 65, CURRENT_TIMESTAMP),
+  ('Farmer''s Carry', 50, CURRENT_TIMESTAMP),
+  ('Bulgarian Split Squat', 25, CURRENT_TIMESTAMP),
+  ('Romanian Deadlift', 95, CURRENT_TIMESTAMP);
 `);
       currentDbVersion = 1;
     }
     if (currentDbVersion === 1) {
       await db.execAsync(`
-        INSERT OR IGNORE INTO exercises (name, created_at) VALUES 
-          ('Dips', CURRENT_TIMESTAMP),
-          ('Pull ups', CURRENT_TIMESTAMP),
-          ('Overhead Press', CURRENT_TIMESTAMP),
-          ('Barbell Row', CURRENT_TIMESTAMP),
-          ('Farmer''s Carry', CURRENT_TIMESTAMP),
-          ('Bulgarian Split Squat', CURRENT_TIMESTAMP),
-          ('Romanian Deadlift', CURRENT_TIMESTAMP);
+        INSERT OR IGNORE INTO exercises (name, default_weight_lb, created_at) VALUES 
+          ('Dips', 0, CURRENT_TIMESTAMP),
+          ('Pull ups', 0, CURRENT_TIMESTAMP),
+          ('Overhead Press', 45, CURRENT_TIMESTAMP),
+          ('Barbell Row', 65, CURRENT_TIMESTAMP),
+          ('Farmer''s Carry', 50, CURRENT_TIMESTAMP),
+          ('Bulgarian Split Squat', 25, CURRENT_TIMESTAMP),
+          ('Romanian Deadlift', 95, CURRENT_TIMESTAMP);
       `);
       currentDbVersion = 2;
     }
