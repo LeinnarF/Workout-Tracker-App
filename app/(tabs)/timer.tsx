@@ -21,6 +21,9 @@ const PRESETS = [
   { label: '2:00', ms: 120 * 1000 },
   { label: '2:30', ms: 150 * 1000 },
   { label: '3:00', ms: 180 * 1000 },
+  { label: '4:00', ms: 4 * 60 * 1000 },
+  { label: '5:00', ms: 5 * 60 * 1000 },
+  { label: '10:00', ms: 10 * 60 * 1000 },
 ];
 
 const TOTAL_SEGMENTS = 16;
