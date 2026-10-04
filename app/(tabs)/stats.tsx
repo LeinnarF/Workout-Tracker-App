@@ -883,10 +883,18 @@ export default function StatsScreen() {
                                 <Text variant="label" color="primary" style={{ width: 120 }} numberOfLines={1}>
                                   {s.exercise_name}
                                 </Text>
-                                <Text variant="numeral" color="primary" style={{ flex: 1, textAlign: 'right', paddingRight: 16 }}>
+                                <Text
+                                  variant="numeral"
+                                  color="primary"
+                                  style={[styles.historyNum, { flex: 1, textAlign: 'right', paddingRight: 16 }]}
+                                >
                                   {s.weight_lb} LB
                                 </Text>
-                                <Text variant="numeral" color="primary" style={{ width: 60, textAlign: 'right' }}>
+                                <Text
+                                  variant="numeral"
+                                  color="primary"
+                                  style={[styles.historyNum, { width: 60, textAlign: 'right' }]}
+                                >
                                   {s.reps}
                                 </Text>
                               </View>
@@ -1090,5 +1098,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     height: 40,
+  },
+  historyNum: {
+    fontSize: 15,
+    lineHeight: 20,
   },
 });
