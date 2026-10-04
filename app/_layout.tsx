@@ -7,16 +7,15 @@ import {
 import {
   IBMPlexSans_400Regular,
 } from '@expo-google-fonts/ibm-plex-sans';
-import { DarkTheme, DefaultTheme, Stack, ThemeProvider } from 'expo-router';
+import { DarkTheme, DefaultTheme, Stack, ThemeProvider as NavigationThemeProvider } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect } from 'react';
 import 'react-native-reanimated';
 
-import { useColorScheme } from 'react-native';
 import { SQLiteProvider } from 'expo-sqlite';
 import { migrateDbIfNeeded } from '../src/db/schema';
 import { TimerProvider } from '../src/timer/TimerContext';
-import { colors } from '../src/theme/tokens';
+import { ThemeProvider as AppThemeProvider, useTheme } from '../src/theme/ThemeContext';
 
 export {
   ErrorBoundary,
@@ -51,13 +50,15 @@ export default function RootLayout() {
     return null;
   }
 
-  return <RootLayoutNav />;
+  return (
+    <AppThemeProvider>
+      <RootLayoutNav />
+    </AppThemeProvider>
+  );
 }
 
 function RootLayoutNav() {
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
-  const currentColors = isDark ? colors.dark : colors.light;
+  const { isDark, colors: currentColors } = useTheme();
 
   const appTheme = {
     ...(isDark ? DarkTheme : DefaultTheme),
@@ -72,7 +73,7 @@ function RootLayoutNav() {
   };
 
   return (
-    <ThemeProvider value={appTheme}>
+    <NavigationThemeProvider value={appTheme}>
       <SQLiteProvider databaseName="gym.db" onInit={migrateDbIfNeeded}>
         <TimerProvider>
           <Stack screenOptions={{ headerShown: false }}>
@@ -87,6 +88,6 @@ function RootLayoutNav() {
           </Stack>
         </TimerProvider>
       </SQLiteProvider>
-    </ThemeProvider>
+    </NavigationThemeProvider>
   );
 }

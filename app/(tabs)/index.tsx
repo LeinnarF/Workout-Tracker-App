@@ -9,7 +9,7 @@ import {
 import { useSQLiteContext } from 'expo-sqlite';
 import { useFocusEffect, router } from 'expo-router';
 import * as Haptics from 'expo-haptics';
-import { Plus, Settings as SettingsIcon, ChevronDown, ChevronUp } from 'lucide-react-native';
+import { Plus, Settings as SettingsIcon, ChevronDown, ChevronUp, Sun, Moon } from 'lucide-react-native';
 
 import { Session, Exercise, SetRecord } from '../../src/db/types';
 import {
@@ -51,7 +51,7 @@ const PRESET_ORDER = [
 
 export default function LogScreen() {
   const db = useSQLiteContext();
-  const { colors } = useTheme();
+  const { colors, isDark, setThemeMode } = useTheme();
 
   const [loading, setLoading] = useState(true);
   const [exercises, setExercises] = useState<Exercise[]>([]);
@@ -340,6 +340,24 @@ export default function LogScreen() {
         style={styles.iconBtn}
       >
         <Plus size={20} color={colors.text} strokeWidth={1.75} />
+      </Pressable>
+      <Pressable
+        onPress={() => {
+          try {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+          } catch {
+            // ignore
+          }
+          setThemeMode(isDark ? 'light' : 'dark');
+        }}
+        hitSlop={8}
+        style={styles.iconBtn}
+      >
+        {isDark ? (
+          <Sun size={20} color={colors.textMuted} strokeWidth={1.75} />
+        ) : (
+          <Moon size={20} color={colors.textMuted} strokeWidth={1.75} />
+        )}
       </Pressable>
       <Pressable
         onPress={() => router.push('/(tabs)/settings')}

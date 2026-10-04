@@ -18,7 +18,7 @@ import { Screen, Text, Rule } from '../../src/components/ui';
 
 export default function SettingsScreen() {
   const db = useSQLiteContext();
-  const { colors } = useTheme();
+  const { colors, themeMode, setThemeMode } = useTheme();
 
   const [lastBackup, setLastBackup] = useState<string | null>(null);
   const [isExporting, setIsExporting] = useState(false);
@@ -189,6 +189,45 @@ export default function SettingsScreen() {
 
   return (
     <Screen title="SETTINGS">
+      {/* Theme / Appearance Spec Box */}
+      <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.outline }]}>
+        <Text variant="label" color="primary" style={styles.cardHeading}>
+          APPEARANCE
+        </Text>
+        <Text variant="body" color="muted" style={styles.cardDescription}>
+          Select interface theme or match system default.
+        </Text>
+
+        <View style={[styles.themeStrip, { borderColor: colors.outline }]}>
+          {(['system', 'light', 'dark'] as const).map((mode, idx) => {
+            const isSelected = themeMode === mode;
+            return (
+              <Pressable
+                key={mode}
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  setThemeMode(mode);
+                }}
+                style={[
+                  styles.themeButton,
+                  {
+                    backgroundColor: isSelected ? colors.raised : colors.surface,
+                    borderRightColor: colors.outline,
+                    borderRightWidth: idx === 2 ? 0 : 1,
+                  },
+                ]}
+              >
+                <Text
+                  variant="label"
+                  color={isSelected ? 'accent' : 'muted'}
+                >
+                  {mode.toUpperCase()}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </View>
+      </View>
       {/* Data & Backup Spec Box */}
       <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.outline }]}>
         <Text variant="label" color="primary" style={styles.cardHeading}>
@@ -371,5 +410,17 @@ const styles = StyleSheet.create({
   privacyHeader: {
     flexDirection: 'row',
     alignItems: 'center',
+  },
+  themeStrip: {
+    flexDirection: 'row',
+    height: 44,
+    borderWidth: 1,
+    borderRadius: 0,
+    marginTop: 12,
+  },
+  themeButton: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });
