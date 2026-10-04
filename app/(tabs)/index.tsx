@@ -132,7 +132,7 @@ export default function LogScreen() {
         setSuggestion(null);
       }
 
-      setCurrentReps(4);
+      setCurrentReps(Math.min(ex.rep_max, Math.max(1, ex.rep_min || 4)));
     } catch (e) {
       console.error('Error getting history for exercise:', e);
     }
@@ -194,7 +194,7 @@ export default function LogScreen() {
         )
       );
 
-      setCurrentReps(4);
+      setCurrentReps(Math.min(ex.rep_max, Math.max(1, ex.rep_min || 4)));
     } catch (e) {
       Alert.alert('Error', 'Failed to log set: ' + String(e));
     }
@@ -474,6 +474,7 @@ export default function LogScreen() {
                       onChange={setCurrentReps}
                       step={1}
                       min={1}
+                      max={ex.rep_max}
                     />
                   </View>
 

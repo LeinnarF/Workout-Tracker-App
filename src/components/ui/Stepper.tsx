@@ -15,6 +15,7 @@ export interface StepperProps {
   onChange: (val: number) => void;
   step: number;
   min?: number;
+  max?: number;
   label: string;
   unit?: string;
 }
@@ -24,6 +25,7 @@ export function Stepper({
   onChange,
   step,
   min = 0,
+  max,
   label,
   unit,
 }: StepperProps) {
@@ -31,13 +33,30 @@ export function Stepper({
   const inputRef = useRef<TextInput>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
+  const stopRepeating = () => {
+    if (timerRef.current) {
+      clearInterval(timerRef.current);
+      timerRef.current = null;
+    }
+  };
+
   const handleStep = (direction: 1 | -1) => {
+    if (direction === 1 && max !== undefined && value >= max) {
+      stopRepeating();
+      return;
+    }
+    if (direction === -1 && min !== undefined && value <= min) {
+      stopRepeating();
+      return;
+    }
     try {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     } catch {
       // ignore
     }
-    const next = Math.max(min, Math.round((value + direction * step) * 10) / 10);
+    const rawNext = Math.round((value + direction * step) * 10) / 10;
+    const clampedMin = Math.max(min, rawNext);
+    const next = max !== undefined ? Math.min(max, clampedMin) : clampedMin;
     onChange(next);
   };
 
@@ -48,24 +67,21 @@ export function Stepper({
     }, 150);
   };
 
-  const stopRepeating = () => {
-    if (timerRef.current) {
-      clearInterval(timerRef.current);
-      timerRef.current = null;
-    }
-  };
-
   const handleTextChange = (text: string) => {
     const clean = text.replace(/[^0-9.]/g, '');
     const parsed = parseFloat(clean);
     if (!isNaN(parsed)) {
-      onChange(Math.max(min, parsed));
+      const clampedMin = Math.max(min, parsed);
+      const next = max !== undefined ? Math.min(max, clampedMin) : clampedMin;
+      onChange(next);
     } else if (clean === '') {
       onChange(min);
     }
   };
 
   const fullLabel = unit ? `${label} ${unit}` : label;
+  const isMinusDisabled = min !== undefined && value <= min;
+  const isPlusDisabled = max !== undefined && value >= max;
 
   return (
     <View style={styles.container}>
@@ -75,18 +91,20 @@ export function Stepper({
       <View style={styles.controlsRow}>
         {/* Minus Button: Square 48dp, raised fill, 1px outline border, radius 2 */}
         <Pressable
-          onPressIn={() => startRepeating(-1)}
+          onPressIn={() => !isMinusDisabled && startRepeating(-1)}
           onPressOut={stopRepeating}
+          disabled={isMinusDisabled}
           style={({ pressed }) => [
             styles.stepperButton,
             {
               backgroundColor: colors.raised,
-              borderColor: pressed ? colors.text : colors.outline,
+              borderColor: isMinusDisabled ? colors.outline : pressed ? colors.text : colors.outline,
               borderRadius: radius.control,
+              opacity: isMinusDisabled ? 0.35 : 1,
             },
           ]}
         >
-          <Minus size={20} color={colors.text} strokeWidth={1.75} />
+          <Minus size={20} color={isMinusDisabled ? colors.textMuted : colors.text} strokeWidth={1.75} />
         </Pressable>
 
         {/* Value Box: Boxed field, 1px outline, surface fill, radius 0 */}
@@ -119,18 +137,20 @@ export function Stepper({
 
         {/* Plus Button: Square 48dp, raised fill, 1px outline border, radius 2 */}
         <Pressable
-          onPressIn={() => startRepeating(1)}
+          onPressIn={() => !isPlusDisabled && startRepeating(1)}
           onPressOut={stopRepeating}
+          disabled={isPlusDisabled}
           style={({ pressed }) => [
             styles.stepperButton,
             {
               backgroundColor: colors.raised,
-              borderColor: pressed ? colors.text : colors.outline,
+              borderColor: isPlusDisabled ? colors.outline : pressed ? colors.text : colors.outline,
               borderRadius: radius.control,
+              opacity: isPlusDisabled ? 0.35 : 1,
             },
           ]}
         >
-          <Plus size={20} color={colors.text} strokeWidth={1.75} />
+          <Plus size={20} color={isPlusDisabled ? colors.textMuted : colors.text} strokeWidth={1.75} />
         </Pressable>
       </View>
     </View>
