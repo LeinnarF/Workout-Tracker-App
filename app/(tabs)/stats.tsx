@@ -467,7 +467,13 @@ export default function StatsScreen() {
                           <Text variant="micro" color="muted">
                             MAX WEIGHT
                           </Text>
-                          <Text variant="numeral" color="primary">
+                          <Text
+                            variant="numeral"
+                            color="primary"
+                            style={styles.prMetricValue}
+                            numberOfLines={1}
+                            adjustsFontSizeToFit
+                          >
                             {pr.heaviestWeightLb} LB
                           </Text>
                         </View>
@@ -475,7 +481,13 @@ export default function StatsScreen() {
                           <Text variant="micro" color="muted">
                             EST. 1RM
                           </Text>
-                          <Text variant="numeral" color="primary">
+                          <Text
+                            variant="numeral"
+                            color="primary"
+                            style={styles.prMetricValue}
+                            numberOfLines={1}
+                            adjustsFontSizeToFit
+                          >
                             {pr.bestE1rm} LB
                           </Text>
                         </View>
@@ -483,7 +495,13 @@ export default function StatsScreen() {
                           <Text variant="micro" color="muted">
                             MAX VOLUME
                           </Text>
-                          <Text variant="numeral" color="primary">
+                          <Text
+                            variant="numeral"
+                            color="primary"
+                            style={styles.prMetricValue}
+                            numberOfLines={1}
+                            adjustsFontSizeToFit
+                          >
                             {pr.maxSessionVolume} LB
                           </Text>
                         </View>
@@ -888,6 +906,11 @@ const styles = StyleSheet.create({
   },
   prMetric: {
     flex: 1,
+  },
+  prMetricValue: {
+    fontSize: 16,
+    lineHeight: 20,
+    marginTop: 4,
   },
   exerciseDropdownBtn: {
     height: 52,
