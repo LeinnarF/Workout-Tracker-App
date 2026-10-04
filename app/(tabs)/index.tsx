@@ -29,6 +29,7 @@ import {
 } from '../../src/db/queries';
 import { suggestNext, ProgressionSuggestion } from '../../src/logic/suggestNext';
 import { ExerciseModal } from '../../src/components/ExerciseModal';
+import { ExerciseActionModal } from '../../src/components/ExerciseActionModal';
 import { useTheme } from '../../src/theme/useTheme';
 import {
   Screen,
@@ -67,6 +68,7 @@ export default function LogScreen() {
   // Exercise modal
   const [exerciseModalVisible, setExerciseModalVisible] = useState(false);
   const [editingExercise, setEditingExercise] = useState<Exercise | null>(null);
+  const [actionModalExercise, setActionModalExercise] = useState<Exercise | null>(null);
 
   const loadData = useCallback(async () => {
     try {
@@ -235,45 +237,7 @@ export default function LogScreen() {
 
   const handleExerciseLongPress = (ex: Exercise) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
-    Alert.alert(
-      ex.name.toUpperCase(),
-      `TARGET: ${ex.target_sets} SETS × ${ex.rep_min}-${ex.rep_max} REPS (+${ex.increment_lb} LB)`,
-      [
-        {
-          text: 'EDIT EXERCISE',
-          onPress: () => {
-            setEditingExercise(ex);
-            setExerciseModalVisible(true);
-          },
-        },
-        {
-          text: 'DELETE EXERCISE',
-          style: 'destructive',
-          onPress: () => {
-            Alert.alert(
-              'DELETE EXERCISE',
-              `Remove "${ex.name}"? Past workout history will remain preserved.`,
-              [
-                { text: 'CANCEL', style: 'cancel' },
-                {
-                  text: 'DELETE',
-                  style: 'destructive',
-                  onPress: async () => {
-                    await deleteExercise(db, ex.id);
-                    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-                    if (selectedExerciseId === ex.id) {
-                      setSelectedExerciseId(null);
-                    }
-                    loadData();
-                  },
-                },
-              ]
-            );
-          },
-        },
-        { text: 'CANCEL', style: 'cancel' },
-      ]
-    );
+    setActionModalExercise(ex);
   };
 
   const handleSaveExerciseModal = async (data: {
@@ -530,6 +494,26 @@ export default function LogScreen() {
           setEditingExercise(null);
         }}
         onSave={handleSaveExerciseModal}
+      />
+
+      <ExerciseActionModal
+        visible={actionModalExercise !== null}
+        exercise={actionModalExercise}
+        onClose={() => setActionModalExercise(null)}
+        onEdit={(ex) => {
+          setActionModalExercise(null);
+          setEditingExercise(ex);
+          setExerciseModalVisible(true);
+        }}
+        onDelete={async (ex) => {
+          setActionModalExercise(null);
+          await deleteExercise(db, ex.id);
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+          if (selectedExerciseId === ex.id) {
+            setSelectedExerciseId(null);
+          }
+          loadData();
+        }}
       />
     </Screen>
   );
