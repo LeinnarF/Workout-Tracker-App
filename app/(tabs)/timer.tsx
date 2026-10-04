@@ -15,7 +15,7 @@ import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { useTimer } from '../../src/timer/TimerContext';
 
 const MINUTES_DATA = Array.from({ length: 16 }, (_, i) => i); // 0 to 15
-const SECONDS_DATA = [0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55];
+const SECONDS_DATA = Array.from({ length: 60 }, (_, i) => i); // 0 to 59
 
 const PRESETS = [
   { label: '30s', min: 0, sec: 30, ms: 30 * 1000 },
@@ -35,14 +35,12 @@ interface OdometerWheelProps {
   items: number[];
   selectedValue: number;
   onValueChange: (val: number) => void;
-  unitLabel: string;
 }
 
 function OdometerWheel({
   items,
   selectedValue,
   onValueChange,
-  unitLabel,
 }: OdometerWheelProps) {
   const scrollRef = useRef<ScrollView>(null);
   const isUserScrollingRef = useRef(false);
@@ -95,9 +93,6 @@ function OdometerWheel({
 
   return (
     <View style={styles.wheelColumn}>
-      {/* Unit label above wheel */}
-      <Text style={styles.wheelHeaderLabel}>{unitLabel.toUpperCase()}</Text>
-
       <View style={styles.wheelWindow}>
         <ScrollView
           ref={scrollRef}
@@ -426,19 +421,12 @@ export default function TimerScreen() {
 
             {/* Odometer Drum Container */}
             <View style={styles.odometerCard}>
-              {/* Highlight selection bar sitting behind center row */}
-              <View style={styles.odometerSelectionBar} pointerEvents="none">
-                <Text style={styles.selectionUnitMin}>min</Text>
-                <Text style={styles.selectionUnitSec}>sec</Text>
-              </View>
-
               <View style={styles.odometerWheelsRow}>
                 {/* Minutes Drum Wheel */}
                 <OdometerWheel
                   items={MINUTES_DATA}
                   selectedValue={selectedMin}
                   onValueChange={setSelectedMin}
-                  unitLabel="Minutes"
                 />
 
                 {/* Center Colon Separator */}
@@ -451,7 +439,6 @@ export default function TimerScreen() {
                   items={SECONDS_DATA}
                   selectedValue={selectedSec}
                   onValueChange={setSelectedSec}
-                  unitLabel="Seconds"
                 />
               </View>
             </View>
@@ -576,40 +563,6 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 2,
   },
-  odometerSelectionBar: {
-    position: 'absolute',
-    top: PADDING + 34, // account for wheel header labels
-    left: 20,
-    right: 20,
-    height: ITEM_HEIGHT,
-    backgroundColor: '#F0F4F8',
-    borderRadius: 16,
-    borderWidth: 1.5,
-    borderColor: '#D0DBEA',
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 18,
-    zIndex: 1,
-  },
-  selectionUnitMin: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#007AFF',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-    position: 'absolute',
-    left: '42%',
-  },
-  selectionUnitSec: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#007AFF',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-    position: 'absolute',
-    right: 14,
-  },
   odometerWheelsRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -620,13 +573,6 @@ const styles = StyleSheet.create({
   wheelColumn: {
     flex: 1,
     alignItems: 'center',
-  },
-  wheelHeaderLabel: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#8E8E93',
-    letterSpacing: 0.8,
-    marginBottom: 8,
   },
   wheelWindow: {
     height: PICKER_HEIGHT,
@@ -657,7 +603,6 @@ const styles = StyleSheet.create({
     height: PICKER_HEIGHT,
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: 20,
   },
   colonText: {
     fontSize: 38,
