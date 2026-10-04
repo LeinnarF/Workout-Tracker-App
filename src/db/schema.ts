@@ -2,6 +2,11 @@ import { SQLiteDatabase } from 'expo-sqlite';
 
 export async function migrateDbIfNeeded(db: SQLiteDatabase) {
   try {
+    await db.execAsync(`
+      PRAGMA journal_mode = 'wal';
+      PRAGMA foreign_keys = ON;
+    `);
+
     const DATABASE_VERSION = 3;
     let { user_version: currentDbVersion } = await db.getFirstAsync<{ user_version: number }>(
       'PRAGMA user_version'
@@ -12,9 +17,6 @@ export async function migrateDbIfNeeded(db: SQLiteDatabase) {
     }
     if (currentDbVersion === 0) {
       await db.execAsync(`
-PRAGMA journal_mode = 'wal';
-PRAGMA foreign_keys = ON;
-
 CREATE TABLE exercises (
   id INTEGER PRIMARY KEY,
   name TEXT NOT NULL UNIQUE,

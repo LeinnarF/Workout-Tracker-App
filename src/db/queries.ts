@@ -121,14 +121,17 @@ export async function ensurePresetExercises(db: SQLiteDatabase): Promise<void> {
   }
 
   await db.execAsync(`
-    INSERT OR IGNORE INTO exercises (name, created_at) VALUES 
-      ('Dips', CURRENT_TIMESTAMP),
-      ('Pull ups', CURRENT_TIMESTAMP),
-      ('Overhead Press', CURRENT_TIMESTAMP),
-      ('Barbell Row', CURRENT_TIMESTAMP),
-      ('Farmer''s Carry', CURRENT_TIMESTAMP),
-      ('Bulgarian Split Squat', CURRENT_TIMESTAMP),
-      ('Romanian Deadlift', CURRENT_TIMESTAMP);
+    INSERT OR IGNORE INTO exercises (name, default_weight_lb, created_at) VALUES 
+      ('Dips', 0, CURRENT_TIMESTAMP),
+      ('Pull ups', 0, CURRENT_TIMESTAMP),
+      ('Overhead Press', 45, CURRENT_TIMESTAMP),
+      ('Barbell Row', 65, CURRENT_TIMESTAMP),
+      ('Farmer''s Carry', 50, CURRENT_TIMESTAMP),
+      ('Bulgarian Split Squat', 25, CURRENT_TIMESTAMP),
+      ('Romanian Deadlift', 95, CURRENT_TIMESTAMP);
+
+    UPDATE exercises SET default_weight_lb = 0 
+    WHERE name IN ('Dips', 'Pull ups') AND (default_weight_lb IS NULL OR default_weight_lb = 45);
   `);
 }
 
@@ -137,18 +140,22 @@ export async function getLastSessionSetsForExercise(
   exerciseId: number,
   currentSessionId?: number | null
 ): Promise<SetRecord[]> {
-  // Find the most recent session for this exercise before the current session
+  // Find the most recent session for this exercise before the current session by date
   const lastSession = currentSessionId
     ? await db.getFirstAsync<{ session_id: number }>(
-        `SELECT session_id FROM sets 
-         WHERE exercise_id = ? AND session_id != ? 
-         ORDER BY session_id DESC LIMIT 1`,
+        `SELECT sets.session_id 
+         FROM sets 
+         JOIN sessions ON sets.session_id = sessions.id
+         WHERE sets.exercise_id = ? AND sets.session_id != ? 
+         ORDER BY sessions.started_at DESC LIMIT 1`,
         [exerciseId, currentSessionId]
       )
     : await db.getFirstAsync<{ session_id: number }>(
-        `SELECT session_id FROM sets 
-         WHERE exercise_id = ? 
-         ORDER BY session_id DESC LIMIT 1`,
+        `SELECT sets.session_id 
+         FROM sets 
+         JOIN sessions ON sets.session_id = sessions.id
+         WHERE sets.exercise_id = ? 
+         ORDER BY sessions.started_at DESC LIMIT 1`,
         [exerciseId]
       );
 

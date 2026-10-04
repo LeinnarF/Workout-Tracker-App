@@ -122,10 +122,10 @@ export default function LogScreen() {
       const sug = suggestNext(ex, history);
 
       let baseWeight = 45;
-      if (ex.default_weight_lb != null && ex.default_weight_lb > 0) {
-        baseWeight = ex.default_weight_lb;
-      } else if (history.length > 0) {
+      if (history.length > 0) {
         baseWeight = history[history.length - 1].weight_lb;
+      } else if (ex.default_weight_lb != null) {
+        baseWeight = ex.default_weight_lb;
       }
 
       setCurrentWeight(baseWeight);

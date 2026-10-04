@@ -131,6 +131,7 @@ export async function getStatsForExercise(
 
   const sortedWeeks = Object.keys(weekGroups).sort();
   let prevMaxWeight: number | null = null;
+  let prevTotalReps: number | null = null;
 
   const weekly: WeeklyRepStat[] = sortedWeeks.map((weekKey) => {
     const group = weekGroups[weekKey];
@@ -142,8 +143,6 @@ export async function getStatsForExercise(
     for (let i = 1; i < group.weights.length; i++) {
       if (group.weights[i] > runningMax) {
         hasIntraWeekIncrease = true;
-      }
-      if (group.weights[i] > runningMax) {
         runningMax = group.weights[i];
       }
     }
@@ -151,7 +150,14 @@ export async function getStatsForExercise(
     // Inter-week increase: this week's max weight is strictly greater than the previous logged week's max weight
     const hasInterWeekIncrease = prevMaxWeight !== null && maxWeight > prevMaxWeight;
 
-    const hasWeightIncrease = hasInterWeekIncrease || hasIntraWeekIncrease;
+    // Rep overload when weight is unchanged (e.g. bodyweight 0 lb or holding weight constant)
+    const hasRepOverload =
+      prevMaxWeight !== null &&
+      maxWeight === prevMaxWeight &&
+      prevTotalReps !== null &&
+      group.totalReps > prevTotalReps;
+
+    const hasWeightIncrease = hasInterWeekIncrease || hasIntraWeekIncrease || hasRepOverload;
 
     const stat: WeeklyRepStat = {
       weekStart: weekKey,
@@ -164,6 +170,7 @@ export async function getStatsForExercise(
     };
 
     prevMaxWeight = maxWeight;
+    prevTotalReps = group.totalReps;
     return stat;
   });
 
@@ -370,10 +377,10 @@ export async function getAllExercisesOverloadStatus(
     const sug = suggestNext(ex, history);
     const workingSets = history.filter((s) => s.is_warmup === 0);
     const currentWeight =
-      ex.default_weight_lb != null && ex.default_weight_lb > 0
-        ? ex.default_weight_lb
-        : workingSets.length > 0
+      workingSets.length > 0
         ? workingSets[workingSets.length - 1].weight_lb
+        : ex.default_weight_lb != null
+        ? ex.default_weight_lb
         : 45;
 
     result.push({

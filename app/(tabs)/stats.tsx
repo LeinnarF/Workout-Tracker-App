@@ -241,6 +241,12 @@ export default function StatsScreen() {
     label: d.date.slice(5),
   }));
 
+  const maxLinePointValue = Math.max(
+    ...e1rmLinePoints.map((p) => p.value),
+    ...weightLinePoints.map((p) => p.value),
+    0
+  );
+
   // Map daily chart data for Rep Count BarChart
   const dailyRepBarData = chartData.map((d) => {
     const isOverload =
@@ -350,7 +356,7 @@ export default function StatsScreen() {
               <View style={[styles.kpiGrid, { borderColor: colors.outline }]}>
                 <View style={[styles.kpiCell, { borderRightWidth: 1, borderRightColor: colors.outline }]}>
                   <Text variant="label" color="muted">
-                    WORKOUTS
+                    SESSIONS
                   </Text>
                   <Text variant="numeral" color="primary" style={styles.kpiValue}>
                     {lifetimeStats?.totalWorkouts || 0}
@@ -506,7 +512,7 @@ export default function StatsScreen() {
                             numberOfLines={1}
                             adjustsFontSizeToFit
                           >
-                            {pr.heaviestWeightLb} LB
+                            {pr.heaviestWeightLb === 0 ? 'BW' : `${pr.heaviestWeightLb} LB`}
                           </Text>
                         </View>
                         <View style={styles.prMetric}>
@@ -520,7 +526,7 @@ export default function StatsScreen() {
                             numberOfLines={1}
                             adjustsFontSizeToFit
                           >
-                            {pr.bestE1rm} LB
+                            {pr.bestE1rm === 0 ? 'BW' : `${pr.bestE1rm} LB`}
                           </Text>
                         </View>
                         <View style={styles.prMetric}>
@@ -534,7 +540,7 @@ export default function StatsScreen() {
                             numberOfLines={1}
                             adjustsFontSizeToFit
                           >
-                            {pr.maxSessionVolume} LB
+                            {pr.maxSessionVolume === 0 ? 'BW' : `${pr.maxSessionVolume} LB`}
                           </Text>
                         </View>
                       </View>
@@ -663,6 +669,8 @@ export default function StatsScreen() {
                   data2={weightLinePoints}
                   width={chartWidth}
                   height={180}
+                  maxValue={maxLinePointValue > 0 ? undefined : 20}
+                  noOfSections={4}
                   color={colors.accent}
                   color2={colors.textMuted}
                   thickness={2}
@@ -1100,7 +1108,7 @@ const styles = StyleSheet.create({
     height: 40,
   },
   historyNum: {
-    fontSize: 15,
+    fontSize: 13,
     lineHeight: 20,
   },
 });

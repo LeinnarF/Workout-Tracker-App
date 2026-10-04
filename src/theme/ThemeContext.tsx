@@ -90,21 +90,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
 export function useTheme() {
   const context = useContext(ThemeContext);
   if (!context) {
-    // Fallback if rendered outside provider
-    // eslint-disable-next-line react-hooks/rules-of-hooks
-    const systemColorScheme = useColorScheme();
-    const isDark = systemColorScheme === 'dark';
-    return {
-      themeMode: 'system' as ThemeMode,
-      setThemeMode: () => {},
-      colors: isDark ? colors.dark : colors.light,
-      isDark,
-      spacing,
-      radius,
-      border,
-      typography,
-      fonts,
-    };
+    throw new Error('useTheme must be used within a ThemeProvider');
   }
   return context;
 }
