@@ -76,13 +76,13 @@ export default function StatsScreen() {
   const loadOverview = useCallback(async () => {
     setLoadingOverview(true);
     try {
-      const [life, prList, overloadList] = await Promise.all([
-        getLifetimeStats(db),
-        getExercisePRs(db),
-        getAllExercisesOverloadStatus(db),
-      ]);
+      const life = await getLifetimeStats(db);
       setLifetimeStats(life);
+
+      const prList = await getExercisePRs(db);
       setPrs(prList);
+
+      const overloadList = await getAllExercisesOverloadStatus(db);
       setOverloadStatuses(overloadList);
     } catch (e) {
       console.error('Error loading overview stats:', e);
@@ -92,37 +92,55 @@ export default function StatsScreen() {
   }, [db]);
 
   const loadHistory = useCallback(async () => {
-    const past = await getPastSessions(db);
-    setSessions(past);
+    try {
+      const past = await getPastSessions(db);
+      setSessions(past);
+    } catch (e) {
+      console.error('Error loading history:', e);
+    }
   }, [db]);
 
   const loadExercises = useCallback(async () => {
-    const list = await getExercises(db);
-    setExercises(list);
-    if (list.length > 0) {
-      const activeId =
-        selectedEx && list.some((e) => e.id === selectedEx) ? selectedEx : list[0].id;
-      if (selectedEx !== activeId) {
-        setSelectedEx(activeId);
+    try {
+      const list = await getExercises(db);
+      setExercises(list);
+      if (list.length > 0) {
+        const activeId =
+          selectedEx && list.some((e) => e.id === selectedEx) ? selectedEx : list[0].id;
+        if (selectedEx !== activeId) {
+          setSelectedEx(activeId);
+        }
+        setLoadingChart(true);
+        try {
+          const stats = await getStatsForExercise(db, activeId, timeRange);
+          setChartData(stats.daily);
+          setWeeklyData(stats.weekly);
+          setSelectedWeek(null);
+        } finally {
+          setLoadingChart(false);
+        }
       }
-      setLoadingChart(true);
-      try {
-        const stats = await getStatsForExercise(db, activeId, timeRange);
-        setChartData(stats.daily);
-        setWeeklyData(stats.weekly);
-        setSelectedWeek(null);
-      } finally {
-        setLoadingChart(false);
-      }
+    } catch (e) {
+      console.error('Error loading exercises and stats:', e);
     }
   }, [db, selectedEx, timeRange]);
 
   useFocusEffect(
     useCallback(() => {
-      loadOverview();
-      loadHistory();
-      loadExercises();
-    }, [loadOverview, loadHistory, loadExercises])
+      let isMounted = true;
+      const loadAll = async () => {
+        if (!isMounted) return;
+        await loadOverview();
+        if (!isMounted) return;
+        await loadExercises();
+        if (!isMounted) return;
+        await loadHistory();
+      };
+      loadAll();
+      return () => {
+        isMounted = false;
+      };
+    }, [loadOverview, loadExercises, loadHistory])
   );
 
   const handleToggleSession = async (sessionId: number) => {

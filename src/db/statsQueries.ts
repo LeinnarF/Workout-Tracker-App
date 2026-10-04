@@ -9,7 +9,7 @@ import {
   ExerciseOverloadStatus,
 } from './types';
 import { calculateE1RM } from '../logic/conversions';
-import { getExercises, getLastSessionSetsForExercise } from './queries';
+import { getExercises } from './queries';
 import { suggestNext } from '../logic/suggestNext';
 
 export async function getPastSessions(db: SQLiteDatabase): Promise<Session[]> {
@@ -261,14 +261,17 @@ export async function getExercisePRs(
 }
 
 export async function getLifetimeStats(db: SQLiteDatabase): Promise<LifetimeStats> {
-  const totalWorkoutsRow = await db.getFirstAsync<{ count: number }>(
-    'SELECT COUNT(DISTINCT session_id) as count FROM sets WHERE is_warmup = 0'
-  );
-  const totalSetsRow = await db.getFirstAsync<{ count: number }>(
-    'SELECT COUNT(*) as count FROM sets WHERE is_warmup = 0'
-  );
-  const totalVolumeRow = await db.getFirstAsync<{ total_volume: number }>(
-    'SELECT COALESCE(SUM(weight_lb * reps), 0) as total_volume FROM sets WHERE is_warmup = 0'
+  const totals = await db.getFirstAsync<{
+    total_workouts: number;
+    total_sets: number;
+    total_volume: number;
+  }>(
+    `SELECT 
+       COUNT(DISTINCT session_id) as total_workouts,
+       COUNT(*) as total_sets,
+       COALESCE(SUM(weight_lb * reps), 0) as total_volume 
+     FROM sets 
+     WHERE is_warmup = 0`
   );
 
   const currentMonday = getMondayOfWeek(new Date().toISOString());
@@ -316,9 +319,9 @@ export async function getLifetimeStats(db: SQLiteDatabase): Promise<LifetimeStat
   }
 
   return {
-    totalWorkouts: totalWorkoutsRow?.count || 0,
-    totalSets: totalSetsRow?.count || 0,
-    totalVolumeLb: Math.round(totalVolumeRow?.total_volume || 0),
+    totalWorkouts: totals?.total_workouts || 0,
+    totalSets: totals?.total_sets || 0,
+    totalVolumeLb: Math.round(totals?.total_volume || 0),
     currentStreakWeeks: streak,
     workoutsThisWeek: thisWeekRow?.count || 0,
     weeklyTarget: 3,
@@ -329,10 +332,35 @@ export async function getAllExercisesOverloadStatus(
   db: SQLiteDatabase
 ): Promise<ExerciseOverloadStatus[]> {
   const exercises = await getExercises(db);
+  if (exercises.length === 0) return [];
+
+  // Fetch all sets from the most recent session for each exercise in a single query
+  const recentSets = await db.getAllAsync<SetRecord>(
+    `WITH RankedSessions AS (
+       SELECT 
+         sets.*,
+         DENSE_RANK() OVER (PARTITION BY sets.exercise_id ORDER BY sessions.started_at DESC) as session_rank
+       FROM sets 
+       JOIN sessions ON sets.session_id = sessions.id
+     )
+     SELECT id, session_id, exercise_id, set_index, weight_lb, reps, is_warmup
+     FROM RankedSessions 
+     WHERE session_rank = 1 
+     ORDER BY exercise_id ASC, set_index ASC`
+  );
+
+  const setsByExercise: Record<number, SetRecord[]> = {};
+  for (const set of recentSets) {
+    if (!setsByExercise[set.exercise_id]) {
+      setsByExercise[set.exercise_id] = [];
+    }
+    setsByExercise[set.exercise_id].push(set);
+  }
+
   const result: ExerciseOverloadStatus[] = [];
 
   for (const ex of exercises) {
-    const history = await getLastSessionSetsForExercise(db, ex.id);
+    const history = setsByExercise[ex.id] || [];
     const sug = suggestNext(ex, history);
     const workingSets = history.filter((s) => s.is_warmup === 0);
     const currentWeight =

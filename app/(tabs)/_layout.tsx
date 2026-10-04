@@ -26,21 +26,21 @@ export default function TabLayout() {
         name="index"
         options={{
           title: 'Log',
-          tabBarIcon: ({ color }) => <TabBarIcon name="list" color={color} />,
+          tabBarIcon: ({ color }) => <TabBarIcon name="book" color={color} />,
         }}
       />
       <Tabs.Screen
         name="stats"
         options={{
           title: 'Stats',
-          tabBarIcon: ({ color }) => <TabBarIcon name="bar-chart" color={color} />,
+          tabBarIcon: ({ color }) => <TabBarIcon name="bar-chart-o" color={color} />,
         }}
       />
       <Tabs.Screen
         name="convert"
         options={{
           title: 'Convert',
-          tabBarIcon: ({ color }) => <TabBarIcon name="exchange" color={color} />,
+          tabBarIcon: ({ color }) => <TabBarIcon name="bars" color={color} />,
         }}
       />
       <Tabs.Screen
