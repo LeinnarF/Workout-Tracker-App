@@ -26,10 +26,10 @@ const PRESETS = [
   { label: '3:00', min: 3, sec: 0, ms: 180 * 1000 },
 ];
 
-const ITEM_HEIGHT = 54;
+const ITEM_HEIGHT = 90;
 const VISIBLE_COUNT = 3;
-const PICKER_HEIGHT = ITEM_HEIGHT * VISIBLE_COUNT;
-const PADDING = (PICKER_HEIGHT - ITEM_HEIGHT) / 2; // exactly 1 item height above & below
+const PICKER_HEIGHT = ITEM_HEIGHT * VISIBLE_COUNT; // 270
+const PADDING = (PICKER_HEIGHT - ITEM_HEIGHT) / 2; // exactly 90 (1 item height above & below)
 
 interface OdometerWheelProps {
   items: number[];
@@ -215,183 +215,100 @@ export default function TimerScreen() {
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <ScrollView
-        contentContainerStyle={styles.container}
-        showsVerticalScrollIndicator={false}
-      >
-        {isTimerActive ? (
-          /* ======================================================== */
-          /* ACTIVE STATE: Circle Timer Progress Dial                 */
-          /* ======================================================== */
-          <>
-            <View style={styles.dialContainer}>
-              <View style={styles.dialWrapper}>
-                <Svg width={size} height={size} style={styles.svgRing}>
-                  <Circle
-                    cx={size / 2}
-                    cy={size / 2}
-                    r={radius}
-                    stroke="#E9EBF0"
-                    strokeWidth={strokeWidth}
-                    fill="transparent"
-                  />
-                  <Circle
-                    cx={size / 2}
-                    cy={size / 2}
-                    r={radius}
-                    stroke={isRunning ? '#007AFF' : '#FF9500'}
-                    strokeWidth={strokeWidth}
-                    strokeDasharray={circumference}
-                    strokeDashoffset={strokeDashoffset}
-                    strokeLinecap="round"
-                    fill="transparent"
-                    rotation="-90"
-                    origin={`${size / 2}, ${size / 2}`}
-                  />
-                </Svg>
+      {isTimerActive ? (
+        /* ======================================================== */
+        /* ACTIVE STATE: Circle Timer Progress Dial                 */
+        /* ======================================================== */
+        <ScrollView
+          contentContainerStyle={styles.activeContainer}
+          showsVerticalScrollIndicator={false}
+        >
+          <View style={styles.dialContainer}>
+            <View style={styles.dialWrapper}>
+              <Svg width={size} height={size} style={styles.svgRing}>
+                <Circle
+                  cx={size / 2}
+                  cy={size / 2}
+                  r={radius}
+                  stroke="#E9EBF0"
+                  strokeWidth={strokeWidth}
+                  fill="transparent"
+                />
+                <Circle
+                  cx={size / 2}
+                  cy={size / 2}
+                  r={radius}
+                  stroke={isRunning ? '#007AFF' : '#FF9500'}
+                  strokeWidth={strokeWidth}
+                  strokeDasharray={circumference}
+                  strokeDashoffset={strokeDashoffset}
+                  strokeLinecap="round"
+                  fill="transparent"
+                  rotation="-90"
+                  origin={`${size / 2}, ${size / 2}`}
+                />
+              </Svg>
 
-                <View style={styles.dialContent}>
+              <View style={styles.dialContent}>
+                <View
+                  style={[
+                    styles.statusBadge,
+                    isRunning
+                      ? styles.statusBadgeRunning
+                      : styles.statusBadgePaused,
+                  ]}
+                >
                   <View
                     style={[
-                      styles.statusBadge,
+                      styles.statusDot,
                       isRunning
-                        ? styles.statusBadgeRunning
-                        : styles.statusBadgePaused,
+                        ? styles.statusDotRunning
+                        : styles.statusDotPaused,
+                    ]}
+                  />
+                  <Text
+                    style={[
+                      styles.statusText,
+                      isRunning
+                        ? styles.statusTextRunning
+                        : styles.statusTextPaused,
                     ]}
                   >
-                    <View
-                      style={[
-                        styles.statusDot,
-                        isRunning
-                          ? styles.statusDotRunning
-                          : styles.statusDotPaused,
-                      ]}
-                    />
-                    <Text
-                      style={[
-                        styles.statusText,
-                        isRunning
-                          ? styles.statusTextRunning
-                          : styles.statusTextPaused,
-                      ]}
-                    >
-                      {isRunning ? 'RESTING' : 'PAUSED'}
-                    </Text>
-                  </View>
-
-                  <Text style={styles.timeDisplay}>
-                    {formatCountdown(timeRemainingMs)}
+                    {isRunning ? 'RESTING' : 'PAUSED'}
                   </Text>
-
-                  <TouchableOpacity
-                    style={styles.quickAddPill}
-                    onPress={() => {
-                      try {
-                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                      } catch {
-                        // ignore
-                      }
-                      addTime(30 * 1000);
-                    }}
-                    activeOpacity={0.7}
-                  >
-                    <FontAwesome name="plus" size={10} color="#007AFF" />
-                    <Text style={styles.quickAddText}>30s</Text>
-                  </TouchableOpacity>
                 </View>
+
+                <Text style={styles.timeDisplay}>
+                  {formatCountdown(timeRemainingMs)}
+                </Text>
+
+                <TouchableOpacity
+                  style={styles.quickAddPill}
+                  onPress={() => {
+                    try {
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    } catch {
+                      // ignore
+                    }
+                    addTime(30 * 1000);
+                  }}
+                  activeOpacity={0.7}
+                >
+                  <FontAwesome name="plus" size={10} color="#007AFF" />
+                  <Text style={styles.quickAddText}>30s</Text>
+                </TouchableOpacity>
               </View>
             </View>
+          </View>
 
-            {/* Controls Row */}
-            <View style={styles.controlsRow}>
-              {/* Reset Button (stops timer and returns to odometer picker) */}
-              <TouchableOpacity
-                style={styles.secondaryBtn}
-                onPress={() => {
-                  try {
-                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                  } catch {
-                    // ignore
-                  }
-                  resetTimer();
-                }}
-                activeOpacity={0.7}
-              >
-                <FontAwesome name="rotate-left" size={15} color="#FF3B30" />
-                <Text style={styles.secondaryBtnText}>Reset</Text>
-              </TouchableOpacity>
-
-              {/* Pause / Resume Button */}
-              {isRunning ? (
-                <TouchableOpacity
-                  style={[styles.primaryBtn, styles.pauseBtn]}
-                  onPress={() => {
-                    try {
-                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                    } catch {
-                      // ignore
-                    }
-                    pauseTimer(timeRemainingMs);
-                  }}
-                  activeOpacity={0.8}
-                >
-                  <FontAwesome
-                    name="pause"
-                    size={16}
-                    color="#fff"
-                    style={{ marginRight: 8 }}
-                  />
-                  <Text style={styles.primaryBtnText}>Pause</Text>
-                </TouchableOpacity>
-              ) : (
-                <TouchableOpacity
-                  style={[styles.primaryBtn, styles.resumeBtn]}
-                  onPress={() => {
-                    try {
-                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                    } catch {
-                      // ignore
-                    }
-                    startTimer(timeRemainingMs);
-                  }}
-                  activeOpacity={0.8}
-                >
-                  <FontAwesome
-                    name="play"
-                    size={16}
-                    color="#fff"
-                    style={{ marginRight: 8 }}
-                  />
-                  <Text style={styles.primaryBtnText}>Resume</Text>
-                </TouchableOpacity>
-              )}
-
-              {/* Quick +30s Extension */}
-              <TouchableOpacity
-                style={styles.secondaryBtn}
-                onPress={() => {
-                  try {
-                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                  } catch {
-                    // ignore
-                  }
-                  addTime(30 * 1000);
-                }}
-                activeOpacity={0.7}
-              >
-                <FontAwesome name="plus" size={13} color="#007AFF" />
-                <Text style={[styles.secondaryBtnText, { color: '#007AFF' }]}>
-                  +30s
-                </Text>
-              </TouchableOpacity>
-            </View>
-
-            {/* Adjust Duration Link */}
+          {/* Controls Row */}
+          <View style={styles.controlsRow}>
+            {/* Reset Button (stops timer and returns to odometer picker) */}
             <TouchableOpacity
-              style={styles.adjustLink}
+              style={styles.secondaryBtn}
               onPress={() => {
                 try {
-                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
                 } catch {
                   // ignore
                 }
@@ -399,27 +316,106 @@ export default function TimerScreen() {
               }}
               activeOpacity={0.7}
             >
-              <FontAwesome name="sliders" size={13} color="#8E8E93" />
-              <Text style={styles.adjustLinkText}>Change Rest Duration</Text>
+              <FontAwesome name="rotate-left" size={15} color="#FF3B30" />
+              <Text style={styles.secondaryBtnText}>Reset</Text>
             </TouchableOpacity>
-          </>
-        ) : (
-          /* ======================================================== */
-          /* DEFAULT STATE: Odometer Scrolling Number Wheels          */
-          /* ======================================================== */
-          <>
-            {/* Header Badge */}
-            <View style={styles.headerDisplayContainer}>
-              <View style={styles.badgePill}>
-                <FontAwesome name="hourglass-half" size={11} color="#007AFF" />
-                <Text style={styles.badgeText}>REST TIMER</Text>
-              </View>
-              <Text style={styles.odometerSubtitle}>
-                Scroll to select duration
+
+            {/* Pause / Resume Button */}
+            {isRunning ? (
+              <TouchableOpacity
+                style={[styles.primaryBtn, styles.pauseBtn]}
+                onPress={() => {
+                  try {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                  } catch {
+                    // ignore
+                  }
+                  pauseTimer(timeRemainingMs);
+                }}
+                activeOpacity={0.8}
+              >
+                <FontAwesome
+                  name="pause"
+                  size={16}
+                  color="#fff"
+                  style={{ marginRight: 8 }}
+                />
+                <Text style={styles.primaryBtnText}>Pause</Text>
+              </TouchableOpacity>
+            ) : (
+              <TouchableOpacity
+                style={[styles.primaryBtn, styles.resumeBtn]}
+                onPress={() => {
+                  try {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                  } catch {
+                    // ignore
+                  }
+                  startTimer(timeRemainingMs);
+                }}
+                activeOpacity={0.8}
+              >
+                <FontAwesome
+                  name="play"
+                  size={16}
+                  color="#fff"
+                  style={{ marginRight: 8 }}
+                />
+                <Text style={styles.primaryBtnText}>Resume</Text>
+              </TouchableOpacity>
+            )}
+
+            {/* Quick +30s Extension */}
+            <TouchableOpacity
+              style={styles.secondaryBtn}
+              onPress={() => {
+                try {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                } catch {
+                  // ignore
+                }
+                addTime(30 * 1000);
+              }}
+              activeOpacity={0.7}
+            >
+              <FontAwesome name="plus" size={13} color="#007AFF" />
+              <Text style={[styles.secondaryBtnText, { color: '#007AFF' }]}>
+                +30s
               </Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* Adjust Duration Link */}
+          <TouchableOpacity
+            style={styles.adjustLink}
+            onPress={() => {
+              try {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              } catch {
+                // ignore
+              }
+              resetTimer();
+            }}
+            activeOpacity={0.7}
+          >
+            <FontAwesome name="sliders" size={13} color="#8E8E93" />
+            <Text style={styles.adjustLinkText}>Change Rest Duration</Text>
+          </TouchableOpacity>
+        </ScrollView>
+      ) : (
+        /* ======================================================== */
+        /* DEFAULT STATE: 70% Timer Setter, 30% Presets & Button     */
+        /* ======================================================== */
+        <View style={styles.setterContainer}>
+          {/* Top Section: ~70% of screen */}
+          <View style={styles.setterTopSection}>
+            {/* Header Badge */}
+            <View style={styles.badgePill}>
+              <FontAwesome name="hourglass-half" size={11} color="#007AFF" />
+              <Text style={styles.badgeText}>REST TIMER</Text>
             </View>
 
-            {/* Odometer Drum Container */}
+            {/* Giant Odometer Drum Container */}
             <View style={styles.odometerCard}>
               <View style={styles.odometerWheelsRow}>
                 {/* Minutes Drum Wheel */}
@@ -442,16 +438,12 @@ export default function TimerScreen() {
                 />
               </View>
             </View>
+          </View>
 
-            {/* Quick Presets */}
-            <View style={styles.card}>
-              <View style={styles.cardHeader}>
-                <View style={styles.cardIconBox}>
-                  <FontAwesome name="bolt" size={13} color="#007AFF" />
-                </View>
-                <Text style={styles.cardTitle}>Quick Presets</Text>
-              </View>
-
+          {/* Bottom Section: ~30% of screen */}
+          <View style={styles.setterBottomSection}>
+            {/* Quick Presets Grid */}
+            <View style={styles.presetsCard}>
               <View style={styles.presetsGrid}>
                 {PRESETS.map((p) => {
                   const isSelected =
@@ -502,9 +494,9 @@ export default function TimerScreen() {
                   : 'Select Duration'}
               </Text>
             </TouchableOpacity>
-          </>
-        )}
-      </ScrollView>
+          </View>
+        </View>
+      )}
     </SafeAreaView>
   );
 }
@@ -514,25 +506,37 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#F8F9FA',
   },
-  container: {
+  activeContainer: {
     padding: 20,
     alignItems: 'center',
     paddingBottom: 40,
   },
-  headerDisplayContainer: {
+  setterContainer: {
+    flex: 1,
+    paddingHorizontal: 20,
+    paddingTop: 12,
+    paddingBottom: 24,
+    justifyContent: 'space-between',
+  },
+  setterTopSection: {
+    flex: 0.7,
     alignItems: 'center',
-    marginTop: 8,
-    marginBottom: 16,
+    justifyContent: 'center',
+  },
+  setterBottomSection: {
+    flex: 0.3,
+    justifyContent: 'flex-end',
+    gap: 12,
   },
   badgePill: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
     backgroundColor: '#EFF6FF',
-    paddingHorizontal: 12,
-    paddingVertical: 5,
+    paddingHorizontal: 14,
+    paddingVertical: 6,
     borderRadius: 14,
-    marginBottom: 6,
+    marginBottom: 16,
   },
   badgeText: {
     fontSize: 11,
@@ -540,27 +544,21 @@ const styles = StyleSheet.create({
     color: '#007AFF',
     letterSpacing: 0.8,
   },
-  odometerSubtitle: {
-    fontSize: 13,
-    color: '#8E8E93',
-    fontWeight: '500',
-  },
   odometerCard: {
     backgroundColor: '#fff',
-    borderRadius: 24,
+    borderRadius: 28,
     borderWidth: 1,
     borderColor: '#E5E5EA',
-    paddingVertical: 12,
-    paddingHorizontal: 16,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
     width: '100%',
-    marginBottom: 20,
+    height: PICKER_HEIGHT + 24,
     alignItems: 'center',
     justifyContent: 'center',
-    position: 'relative',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 3 },
+    shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.05,
-    shadowRadius: 8,
+    shadowRadius: 10,
     elevation: 2,
   },
   odometerWheelsRow: {
@@ -568,7 +566,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     width: '100%',
-    zIndex: 2,
   },
   wheelColumn: {
     flex: 1,
@@ -586,26 +583,26 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   wheelItemText: {
-    fontSize: 26,
-    fontWeight: '500',
-    color: '#AEAEB2',
+    fontSize: 38,
+    fontWeight: '600',
+    color: '#C7C7CC',
     fontVariant: ['tabular-nums'],
-    opacity: 0.45,
+    opacity: 0.35,
   },
   wheelItemTextSelected: {
-    fontSize: 44,
+    fontSize: 76,
     fontWeight: '800',
     color: '#1C1C1E',
     opacity: 1,
   },
   colonContainer: {
-    width: 24,
+    width: 28,
     height: PICKER_HEIGHT,
     alignItems: 'center',
     justifyContent: 'center',
   },
   colonText: {
-    fontSize: 38,
+    fontSize: 58,
     fontWeight: '800',
     color: '#1C1C1E',
   },
@@ -615,7 +612,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     height: PADDING,
-    backgroundColor: 'rgba(255, 255, 255, 0.75)',
+    backgroundColor: 'rgba(255, 255, 255, 0.8)',
   },
   fadeMaskBottom: {
     position: 'absolute',
@@ -623,7 +620,48 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     height: PADDING,
-    backgroundColor: 'rgba(255, 255, 255, 0.75)',
+    backgroundColor: 'rgba(255, 255, 255, 0.8)',
+  },
+  presetsCard: {
+    backgroundColor: '#fff',
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: '#E5E5EA',
+    padding: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.03,
+    shadowRadius: 2,
+    elevation: 1,
+  },
+  presetsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    justifyContent: 'space-between',
+  },
+  presetBtn: {
+    width: '31%',
+    backgroundColor: '#F2F2F7',
+    paddingVertical: 11,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1.5,
+    borderColor: 'transparent',
+  },
+  presetBtnActive: {
+    backgroundColor: '#EFF6FF',
+    borderColor: '#007AFF',
+  },
+  presetBtnText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#1C1C1E',
+  },
+  presetBtnTextActive: {
+    color: '#007AFF',
+    fontWeight: '700',
   },
   startCtaBtn: {
     flexDirection: 'row',
@@ -633,7 +671,6 @@ const styles = StyleSheet.create({
     width: '100%',
     paddingVertical: 16,
     borderRadius: 16,
-    marginTop: 6,
     shadowColor: '#007AFF',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.25,
@@ -799,67 +836,5 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '600',
     color: '#8E8E93',
-  },
-  card: {
-    backgroundColor: '#fff',
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: '#E5E5EA',
-    padding: 16,
-    width: '100%',
-    marginBottom: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.03,
-    shadowRadius: 2,
-    elevation: 1,
-  },
-  cardHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 14,
-    gap: 8,
-  },
-  cardIconBox: {
-    width: 26,
-    height: 26,
-    borderRadius: 13,
-    backgroundColor: '#EBF3FF',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  cardTitle: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#1C1C1E',
-  },
-  presetsGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 10,
-    justifyContent: 'space-between',
-  },
-  presetBtn: {
-    width: '31%',
-    backgroundColor: '#F2F2F7',
-    paddingVertical: 12,
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: 'transparent',
-  },
-  presetBtnActive: {
-    backgroundColor: '#EFF6FF',
-    borderColor: '#007AFF',
-  },
-  presetBtnText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#1C1C1E',
-  },
-  presetBtnTextActive: {
-    color: '#007AFF',
-    fontWeight: '700',
   },
 });
