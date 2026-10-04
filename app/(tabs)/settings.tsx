@@ -557,52 +557,6 @@ export default function SettingsScreen() {
         </Pressable>
       </View>
 
-      {/* Routine Defaults Spec Box */}
-      <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.outline }]}>
-        <Text variant="label" color="primary" style={styles.cardHeading}>
-          ROUTINE SPECIFICATION
-        </Text>
-
-        <View style={styles.specRow}>
-          <Text variant="label" color="muted">
-            STRUCTURE
-          </Text>
-          <Text variant="title" color="primary">
-            FULL-BODY (3 DAYS / WK)
-          </Text>
-        </View>
-        <Rule style={{ marginVertical: 8 }} />
-
-        <View style={styles.specRow}>
-          <Text variant="label" color="muted">
-            PROGRESSION
-          </Text>
-          <Text variant="title" color="primary">
-            DOUBLE PROGRESSION
-          </Text>
-        </View>
-        <Rule style={{ marginVertical: 8 }} />
-
-        <View style={styles.specRow}>
-          <Text variant="label" color="muted">
-            INCREMENT
-          </Text>
-          <Text variant="title" color="primary">
-            +5 LB
-          </Text>
-        </View>
-        <Rule style={{ marginVertical: 8 }} />
-
-        <View style={styles.specRow}>
-          <Text variant="label" color="muted">
-            PRIMARY UNIT
-          </Text>
-          <Text variant="title" color="primary">
-            POUNDS (LB)
-          </Text>
-        </View>
-      </View>
-
       {/* Storage and Privacy */}
       <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.outline }]}>
         <View style={styles.privacyHeader}>
