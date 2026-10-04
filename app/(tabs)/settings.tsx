@@ -10,9 +10,10 @@ import { File, Paths } from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
 import * as DocumentPicker from 'expo-document-picker';
 import * as Haptics from 'expo-haptics';
-import { Share2, Download, Upload, ChevronRight, ShieldCheck } from 'lucide-react-native';
+import { Share2, Download, Upload, ChevronRight, ShieldCheck, Trash2 } from 'lucide-react-native';
 
 import { Session, Exercise, SetRecord } from '../../src/db/types';
+import { ensurePresetExercises } from '../../src/db/queries';
 import { useTheme } from '../../src/theme/useTheme';
 import { Screen, Text, Rule } from '../../src/components/ui';
 
@@ -187,6 +188,80 @@ export default function SettingsScreen() {
     }
   };
 
+  const handleClearData = () => {
+    Alert.alert(
+      'CLEAR DATA',
+      'Choose what data to clear. This action cannot be undone.',
+      [
+        { text: 'CANCEL', style: 'cancel' },
+        {
+          text: 'CLEAR WORKOUT LOGS',
+          style: 'destructive',
+          onPress: () => {
+            Alert.alert(
+              'CONFIRM CLEAR LOGS',
+              'Permanently delete all workout sessions and logged sets? Your custom exercises and rep range targets will be preserved.',
+              [
+                { text: 'CANCEL', style: 'cancel' },
+                {
+                  text: 'DELETE LOGS',
+                  style: 'destructive',
+                  onPress: async () => {
+                    try {
+                      await db.execAsync(`
+                        PRAGMA foreign_keys = OFF;
+                        DELETE FROM sets;
+                        DELETE FROM sessions;
+                        PRAGMA foreign_keys = ON;
+                      `);
+                      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                      Alert.alert('SUCCESS', 'Workout history has been cleared.');
+                    } catch (err) {
+                      Alert.alert('ERROR', 'Failed to clear workout logs: ' + String(err));
+                    }
+                  },
+                },
+              ]
+            );
+          },
+        },
+        {
+          text: 'RESET ALL TO DEFAULT',
+          style: 'destructive',
+          onPress: () => {
+            Alert.alert(
+              'CONFIRM FULL RESET',
+              'Permanently delete all workout history and reset all exercises to factory defaults?',
+              [
+                { text: 'CANCEL', style: 'cancel' },
+                {
+                  text: 'RESET EVERYTHING',
+                  style: 'destructive',
+                  onPress: async () => {
+                    try {
+                      await db.execAsync(`
+                        PRAGMA foreign_keys = OFF;
+                        DELETE FROM sets;
+                        DELETE FROM sessions;
+                        DELETE FROM exercises;
+                        PRAGMA foreign_keys = ON;
+                      `);
+                      await ensurePresetExercises(db);
+                      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                      Alert.alert('SUCCESS', 'All data has been reset to defaults.');
+                    } catch (err) {
+                      Alert.alert('ERROR', 'Failed to reset data: ' + String(err));
+                    }
+                  },
+                },
+              ]
+            );
+          },
+        },
+      ]
+    );
+  };
+
   return (
     <Screen title="SETTINGS">
       {/* Theme / Appearance Spec Box */}
@@ -296,6 +371,27 @@ export default function SettingsScreen() {
               </Text>
               <Text variant="micro" color="muted">
                 REPLACE CURRENT DATA FROM FILE
+              </Text>
+            </View>
+          </View>
+          <ChevronRight size={18} color={colors.textMuted} strokeWidth={1.75} />
+        </Pressable>
+
+        <Rule style={{ marginVertical: 10 }} />
+
+        {/* Action: Clear Data */}
+        <Pressable
+          onPress={handleClearData}
+          style={styles.actionRow}
+        >
+          <View style={styles.actionLeft}>
+            <Trash2 size={18} color={colors.text} strokeWidth={1.75} />
+            <View>
+              <Text variant="title" color="primary">
+                CLEAR DATA
+              </Text>
+              <Text variant="micro" color="muted">
+                WIPE WORKOUT LOGS OR RESET DATABASE
               </Text>
             </View>
           </View>
