@@ -254,30 +254,9 @@ export default function StatsScreen() {
       actualReps: d.totalReps,
       label: d.date.slice(5),
       frontColor: isOverload ? colors.accent : colors.raised,
-      topLabelComponent: () => (
-        <Text
-          style={{
-            fontSize: 9,
-            fontFamily: 'IBMPlexMono_600SemiBold',
-            color: isOverload ? colors.accent : colors.textMuted,
-            marginBottom: 2,
-            textAlign: 'center',
-          }}
-        >
-          {d.totalReps}
-        </Text>
-      ),
     };
   });
 
-  const latestDaily = chartData.length > 0 ? chartData[chartData.length - 1] : null;
-  const latestReps = latestDaily ? latestDaily.totalReps : 0;
-  const latestIsOverload = latestDaily
-    ? latestReps >= maxTargetReps ||
-      (latestDaily.setReps &&
-        latestDaily.setReps.length >= targetSets &&
-        latestDaily.setReps.slice(0, targetSets).every((r) => r >= repMax))
-    : false;
   const dailyRepSections = maxTargetReps % 4 === 0 ? 4 : maxTargetReps % 3 === 0 ? 3 : 2;
 
   // Map weekly data for BarChart
@@ -706,63 +685,11 @@ export default function StatsScreen() {
               {dailyRepBarData.length > 0 && (
                 <View style={[styles.chartCard, { borderColor: colors.outline, backgroundColor: colors.surface }]}>
                   <View style={styles.chartTitleRow}>
-                    <View>
-                      <Text variant="label" color="primary">
-                        SESSION REPS (PER DAY)
-                      </Text>
-                      <Text variant="micro" color="muted" style={{ marginTop: 2 }}>
-                        TARGET: {maxTargetReps} REPS ({targetSets} SETS × {repMax} MAX)
-                      </Text>
-                    </View>
-                    <Badge
-                      label={latestIsOverload ? 'OVERLOAD ACHIEVED' : `${latestReps}/${maxTargetReps} REPS`}
-                      variant={latestIsOverload ? 'overload' : 'neutral'}
-                    />
+                    <Text variant="label" color="primary">
+                      SESSION REPS (PER DAY)
+                    </Text>
+                    <Badge label="GREEN = OVERLOAD" variant="neutral" />
                   </View>
-
-                  {/* Latest Session Counter Meter */}
-                  {latestDaily && (
-                    <View style={[styles.counterContainer, { borderColor: colors.outline, backgroundColor: colors.background }]}>
-                      <View style={styles.counterRow}>
-                        <Text variant="micro" color="muted">
-                          LATEST ({latestDaily.date.slice(5)})
-                        </Text>
-                        <Text
-                          variant="micro"
-                          color={latestIsOverload ? 'accent' : 'muted'}
-                          style={{ fontFamily: 'IBMPlexMono_600SemiBold' }}
-                        >
-                          {latestIsOverload
-                            ? `OVERLOAD READY (+${selectedExerciseObj?.increment_lb ?? 5} LB NEXT)`
-                            : `${Math.max(0, maxTargetReps - latestReps)} REPS TO OVERLOAD`}
-                        </Text>
-                      </View>
-
-                      <View style={[styles.counterBarTrack, { backgroundColor: colors.raised, borderColor: colors.outline }]}>
-                        <View
-                          style={[
-                            styles.counterBarFill,
-                            {
-                              width: `${Math.min(100, Math.round((latestReps / maxTargetReps) * 100))}%`,
-                              backgroundColor: latestIsOverload ? colors.accent : colors.textMuted,
-                            },
-                          ]}
-                        />
-                      </View>
-
-                      <View style={styles.counterRow}>
-                        <Text variant="title" color={latestIsOverload ? 'accent' : 'primary'}>
-                          {latestReps}{' '}
-                          <Text variant="micro" color="muted">
-                            / {maxTargetReps} REPS
-                          </Text>
-                        </Text>
-                        <Text variant="micro" color="muted">
-                          {Math.min(100, Math.round((latestReps / maxTargetReps) * 100))}% CAPACITY
-                        </Text>
-                      </View>
-                    </View>
-                  )}
 
                   <BarChart
                     data={dailyRepBarData}
@@ -1121,28 +1048,6 @@ const styles = StyleSheet.create({
     width: 8,
     height: 8,
     borderRadius: 0,
-  },
-  counterContainer: {
-    borderWidth: 1,
-    borderRadius: 0,
-    padding: 12,
-    marginBottom: 16,
-  },
-  counterRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  counterBarTrack: {
-    height: 6,
-    width: '100%',
-    borderWidth: 1,
-    marginVertical: 8,
-    borderRadius: 0,
-    overflow: 'hidden',
-  },
-  counterBarFill: {
-    height: '100%',
   },
   historyContainer: {
     borderWidth: 1,
