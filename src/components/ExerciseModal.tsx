@@ -116,6 +116,7 @@ export function ExerciseModal({ visible, exercise, onClose, onSave }: Props) {
             </View>
 
             <ScrollView
+              style={styles.scrollArea}
               contentContainerStyle={styles.scrollContent}
               keyboardShouldPersistTaps="handled"
               showsVerticalScrollIndicator={false}
@@ -190,25 +191,31 @@ export function ExerciseModal({ visible, exercise, onClose, onSave }: Props) {
                   min={0}
                 />
               </View>
-
-              <Rule style={styles.ruleSpacing} />
-
-              {/* Stacked Action Buttons: Primary on top */}
-              <View style={styles.buttonStack}>
-                <Button
-                  label={exercise ? 'UPDATE EXERCISE' : 'CREATE EXERCISE'}
-                  variant="primary"
-                  onPress={handleSave}
-                  loading={saving}
-                />
-                <Button
-                  label="CANCEL"
-                  variant="secondary"
-                  onPress={onClose}
-                  disabled={saving}
-                />
-              </View>
             </ScrollView>
+
+            {/* Pinned Action Buttons Footer */}
+            <View style={[styles.footer, { borderTopColor: colors.outline, backgroundColor: colors.surface }]}>
+              <View style={styles.footerRow}>
+                <View style={styles.footerBtnWrapper}>
+                  <Button
+                    label="CANCEL"
+                    variant="secondary"
+                    onPress={onClose}
+                    disabled={saving}
+                    style={styles.actionBtn}
+                  />
+                </View>
+                <View style={styles.footerBtnWrapper}>
+                  <Button
+                    label={exercise ? 'SAVE' : 'CREATE'}
+                    variant="primary"
+                    onPress={handleSave}
+                    loading={saving}
+                    style={styles.actionBtn}
+                  />
+                </View>
+              </View>
+            </View>
           </KeyboardAvoidingView>
         </SafeAreaView>
       </View>
@@ -227,9 +234,11 @@ const styles = StyleSheet.create({
     maxHeight: '90%',
     borderWidth: 1,
     borderRadius: 0,
+    overflow: 'hidden',
   },
   keyboardContainer: {
     width: '100%',
+    maxHeight: '100%',
   },
   header: {
     height: 52,
@@ -239,9 +248,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     borderBottomWidth: 1,
   },
+  scrollArea: {
+    flexShrink: 1,
+  },
   scrollContent: {
     padding: 16,
-    paddingBottom: 24,
+    paddingBottom: 16,
   },
   ruleSpacing: {
     marginVertical: 12,
@@ -251,8 +263,19 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     gap: 8,
   },
-  buttonStack: {
-    marginTop: 8,
-    gap: 12,
+  footer: {
+    borderTopWidth: 1,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+  },
+  footerRow: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  footerBtnWrapper: {
+    flex: 1,
+  },
+  actionBtn: {
+    height: 48,
   },
 });
