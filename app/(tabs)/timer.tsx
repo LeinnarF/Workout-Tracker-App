@@ -9,7 +9,7 @@ import {
   Pressable,
 } from 'react-native';
 import * as Haptics from 'expo-haptics';
-import { Play, Pause, Square } from 'lucide-react-native';
+import { Play, Pause, Square, Volume2, VolumeX } from 'lucide-react-native';
 import { useTimer } from '../../src/timer/TimerContext';
 import { useTheme } from '../../src/theme/useTheme';
 import { Screen, Text, Button } from '../../src/components/ui';
@@ -37,6 +37,8 @@ export default function TimerScreen() {
     pauseTimer,
     resetTimer,
     addTime,
+    soundEnabled,
+    setSoundEnabled,
   } = useTimer();
 
   const { colors, radius, border, typography } = useTheme();
@@ -198,7 +200,37 @@ export default function TimerScreen() {
     : 'READY';
 
   return (
-    <Screen title="REST TIMER" subtitle={statusLabel}>
+    <Screen
+      title="REST TIMER"
+      subtitle={statusLabel}
+      headerRight={
+        <Pressable
+          onPress={() => {
+            try {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            } catch {
+              // ignore
+            }
+            setSoundEnabled(!soundEnabled);
+          }}
+          hitSlop={8}
+          accessibilityLabel={soundEnabled ? 'Mute timer chime' : 'Enable timer chime'}
+          style={[
+            styles.soundHeaderButton,
+            {
+              borderColor: soundEnabled ? colors.accent : colors.outline,
+              backgroundColor: soundEnabled ? colors.accentTint : colors.surface,
+            },
+          ]}
+        >
+          {soundEnabled ? (
+            <Volume2 size={16} color={colors.accent} strokeWidth={2} />
+          ) : (
+            <VolumeX size={16} color={colors.textMuted} strokeWidth={2} />
+          )}
+        </Pressable>
+      }
+    >
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         style={styles.keyboardContainer}
@@ -527,6 +559,14 @@ const styles = StyleSheet.create({
   presetChip: {
     width: '31%',
     height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  soundHeaderButton: {
+    width: 32,
+    height: 32,
+    borderWidth: 1,
+    borderRadius: 0,
     alignItems: 'center',
     justifyContent: 'center',
   },

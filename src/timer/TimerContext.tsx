@@ -1,6 +1,11 @@
-import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef, useCallback } from 'react';
 import { activateKeepAwakeAsync, deactivateKeepAwake } from 'expo-keep-awake';
 import * as Haptics from 'expo-haptics';
+import { useAudioPlayer, setAudioModeAsync } from 'expo-audio';
+import { File, Paths } from 'expo-file-system';
+
+const timerSoundSource = require('../../assets/sounds/timer-end.wav');
+const SOUND_FILE_NAME = 'timer_sound_preference.txt';
 
 interface TimerContextType {
   targetTime: number | null; // epoch timestamp
@@ -11,6 +16,9 @@ interface TimerContextType {
   addTime: (additionalMs: number) => void;
   timeRemainingMs: number;
   initialDurationMs: number;
+  soundEnabled: boolean;
+  setSoundEnabled: (enabled: boolean) => void;
+  playTimerAlert: () => void;
 }
 
 const TimerContext = createContext<TimerContextType | null>(null);
@@ -20,7 +28,56 @@ export function TimerProvider({ children }: { children: React.ReactNode }) {
   const [isRunning, setIsRunning] = useState(false);
   const [timeRemainingMs, setTimeRemainingMs] = useState(0);
   const [initialDurationMs, setInitialDurationMs] = useState(0);
+  const [soundEnabled, setSoundEnabledState] = useState(true);
+
   const isRunningRef = useRef(isRunning);
+  const soundEnabledRef = useRef(soundEnabled);
+  const player = useAudioPlayer(timerSoundSource);
+
+  // Load sound preference from file
+  useEffect(() => {
+    const loadSoundPreference = async () => {
+      try {
+        const soundFile = new File(Paths.document, SOUND_FILE_NAME);
+        if (soundFile.exists) {
+          const content = await soundFile.text();
+          if (content.trim() === 'false') {
+            setSoundEnabledState(false);
+          } else if (content.trim() === 'true') {
+            setSoundEnabledState(true);
+          }
+        }
+      } catch {
+        // ignore
+      }
+    };
+    loadSoundPreference();
+  }, []);
+
+  const setSoundEnabled = (enabled: boolean) => {
+    setSoundEnabledState(enabled);
+    try {
+      const soundFile = new File(Paths.document, SOUND_FILE_NAME);
+      soundFile.write(enabled ? 'true' : 'false');
+    } catch {
+      // ignore
+    }
+  };
+
+  // Configure audio session for alert playback
+  useEffect(() => {
+    setAudioModeAsync({
+      playsInSilentMode: true,
+      interruptionMode: 'duckOthers',
+    }).catch(() => {
+      // ignore if unsupported
+    });
+  }, []);
+
+  // Update soundEnabledRef
+  useEffect(() => {
+    soundEnabledRef.current = soundEnabled;
+  }, [soundEnabled]);
 
   // Manage keep-awake and ref
   useEffect(() => {
@@ -31,6 +88,28 @@ export function TimerProvider({ children }: { children: React.ReactNode }) {
       deactivateKeepAwake('workout_rest_timer');
     }
   }, [isRunning]);
+
+  const playTimerAlert = useCallback(() => {
+    try {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    } catch {
+      // ignore if haptics unavailable
+    }
+
+    if (soundEnabledRef.current && player) {
+      try {
+        player.seekTo(0);
+        player.play();
+      } catch (err) {
+        console.warn('Failed to play timer sound', err);
+      }
+    }
+  }, [player]);
+
+  const playTimerAlertRef = useRef(playTimerAlert);
+  useEffect(() => {
+    playTimerAlertRef.current = playTimerAlert;
+  }, [playTimerAlert]);
 
   useEffect(() => {
     let interval: ReturnType<typeof setInterval>;
@@ -43,11 +122,7 @@ export function TimerProvider({ children }: { children: React.ReactNode }) {
         if (remaining <= 0) {
           setIsRunning(false);
           setTargetTime(null);
-          try {
-            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-          } catch {
-            // ignore if haptics unavailable
-          }
+          playTimerAlertRef.current();
         }
       }, 100);
     }
@@ -96,6 +171,9 @@ export function TimerProvider({ children }: { children: React.ReactNode }) {
         addTime,
         timeRemainingMs,
         initialDurationMs,
+        soundEnabled,
+        setSoundEnabled,
+        playTimerAlert,
       }}
     >
       {children}
@@ -110,4 +188,5 @@ export function useTimer() {
   }
   return context;
 }
+
 

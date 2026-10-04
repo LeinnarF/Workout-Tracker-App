@@ -10,18 +10,20 @@ import { File, Paths } from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
 import * as DocumentPicker from 'expo-document-picker';
 import * as Haptics from 'expo-haptics';
-import { Share2, Download, Upload, ChevronRight, ShieldCheck, Trash2, Database, Check } from 'lucide-react-native';
+import { Share2, Download, Upload, ChevronRight, ShieldCheck, Trash2, Database, Check, Volume2, VolumeX, Bell } from 'lucide-react-native';
 
 import { Session, Exercise, SetRecord } from '../../src/db/types';
 import { ensurePresetExercises } from '../../src/db/queries';
 import { seedDemoData } from '../../src/db/seedDemoData';
 import { useTheme } from '../../src/theme/useTheme';
 import { ACCENT_COLORS, accentPalettes } from '../../src/theme/tokens';
+import { useTimer } from '../../src/timer/TimerContext';
 import { Screen, Text, Rule } from '../../src/components/ui';
 
 export default function SettingsScreen() {
   const db = useSQLiteContext();
   const { colors, isDark, themeMode, setThemeMode, accentColor, setAccentColor } = useTheme();
+  const { soundEnabled, setSoundEnabled, playTimerAlert } = useTimer();
 
   const [lastBackup, setLastBackup] = useState<string | null>(null);
   const [isExporting, setIsExporting] = useState(false);
@@ -363,6 +365,81 @@ export default function SettingsScreen() {
           })}
         </View>
       </View>
+
+      {/* Rest Timer Audio Spec Box */}
+      <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.outline }]}>
+        <Text variant="label" color="primary" style={styles.cardHeading}>
+          REST TIMER AUDIO
+        </Text>
+        <Text variant="body" color="muted" style={styles.cardDescription}>
+          Sound alert and vibration feedback when workout rest intervals expire.
+        </Text>
+
+        <Rule style={{ marginVertical: 12 }} />
+
+        <Pressable
+          onPress={() => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            setSoundEnabled(!soundEnabled);
+          }}
+          style={styles.actionRow}
+        >
+          <View style={styles.actionLeft}>
+            {soundEnabled ? (
+              <Volume2 size={18} color={colors.accent} strokeWidth={1.75} />
+            ) : (
+              <VolumeX size={18} color={colors.textMuted} strokeWidth={1.75} />
+            )}
+            <View>
+              <Text variant="title" color="primary">
+                TIMER CHIME
+              </Text>
+              <Text variant="micro" color="muted">
+                {soundEnabled ? 'ALERT SOUND AT 00:00' : 'MUTED (HAPTICS ONLY)'}
+              </Text>
+            </View>
+          </View>
+          <Text
+            variant="label"
+            color={soundEnabled ? 'accent' : 'muted'}
+            style={[
+              styles.statusPill,
+              {
+                borderColor: soundEnabled ? colors.accent : colors.outline,
+                backgroundColor: soundEnabled ? colors.accentTint : colors.surface,
+              },
+            ]}
+          >
+            {soundEnabled ? 'ON' : 'OFF'}
+          </Text>
+        </Pressable>
+
+        {soundEnabled && (
+          <>
+            <Rule style={{ marginVertical: 10 }} />
+            <Pressable
+              onPress={() => {
+                playTimerAlert();
+              }}
+              style={styles.actionRow}
+            >
+              <View style={styles.actionLeft}>
+                <Bell size={18} color={colors.text} strokeWidth={1.75} />
+                <View>
+                  <Text variant="title" color="primary">
+                    TEST CHIME
+                  </Text>
+                  <Text variant="micro" color="muted">
+                    PREVIEW REST TIMER ALERT SOUND
+                  </Text>
+                </View>
+              </View>
+              <ChevronRight size={18} color={colors.textMuted} strokeWidth={1.75} />
+            </Pressable>
+          </>
+        )}
+      </View>
+
       {/* Data & Backup Spec Box */}
       <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.outline }]}>
         <Text variant="label" color="primary" style={styles.cardHeading}>
@@ -613,5 +690,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: 2,
+  },
+  statusPill: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderWidth: 1,
+    borderRadius: 0,
   },
 });
