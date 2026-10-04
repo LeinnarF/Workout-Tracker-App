@@ -36,6 +36,7 @@ export default function TimerScreen() {
     startTimer,
     pauseTimer,
     resetTimer,
+    addTime,
   } = useTimer();
 
   const { width: windowWidth } = useWindowDimensions();
@@ -103,6 +104,12 @@ export default function TimerScreen() {
     setSelectedDurationMs(totalMs);
   };
 
+  const handleCustomMinBlur = () => {
+    if (customMin === '') {
+      setCustomMin('0');
+    }
+  };
+
   // Custom SEC change automatically reflects to main timer circle
   const handleCustomSecChange = (text: string) => {
     const clean = text.replace(/[^0-9]/g, '').slice(0, 2);
@@ -116,6 +123,35 @@ export default function TimerScreen() {
       resetTimer();
     }
     setSelectedDurationMs(totalMs);
+  };
+
+  const handleCustomSecBlur = () => {
+    if (customSec === '') {
+      setCustomSec('00');
+    } else if (customSec.length === 1) {
+      setCustomSec(customSec.padStart(2, '0'));
+    }
+  };
+
+  // Add 30s button handler
+  const handleAdd30s = () => {
+    Keyboard.dismiss();
+    try {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    } catch {
+      // ignore
+    }
+    if (isTimerActive) {
+      addTime(30 * 1000);
+    } else {
+      const nextMs = selectedDurationMs + 30 * 1000;
+      setSelectedDurationMs(nextMs);
+      const totalSec = Math.floor(nextMs / 1000);
+      const m = Math.floor(totalSec / 60);
+      const s = totalSec % 60;
+      setCustomMin(m.toString());
+      setCustomSec(s.toString().padStart(2, '0'));
+    }
   };
 
   // Dial calculations
@@ -235,9 +271,9 @@ export default function TimerScreen() {
 
           {/* Bottom Controls and Settings Section */}
           <View style={styles.bottomSection}>
-            {/* Controls Row: Square (Stop/Reset) and Triangle/Pause (Play/Pause) */}
+            {/* Controls Row: Square (Stop/Reset), Triangle/Pause (Play/Pause), and 30s (+30s) */}
             <View style={styles.controlsRow}>
-              {/* Square Button: Stop / Reset */}
+              {/* Left: Square Button (Stop / Reset) */}
               <TouchableOpacity
                 style={[
                   styles.controlBtnSquare,
@@ -259,12 +295,12 @@ export default function TimerScreen() {
               >
                 <FontAwesome
                   name="stop"
-                  size={18}
+                  size={16}
                   color={isTimerActive ? '#FF3B30' : '#C7C7CC'}
                 />
               </TouchableOpacity>
 
-              {/* Triangle / Pause Button: Play / Pause / Resume */}
+              {/* Center: Triangle / Pause Button (Play / Pause / Resume) */}
               {isRunning ? (
                 <TouchableOpacity
                   style={[styles.primaryActionBtn, styles.pauseActionBtn]}
@@ -279,7 +315,7 @@ export default function TimerScreen() {
                   }}
                   activeOpacity={0.8}
                 >
-                  <FontAwesome name="pause" size={24} color="#fff" />
+                  <FontAwesome name="pause" size={20} color="#fff" />
                 </TouchableOpacity>
               ) : isTimerActive ? (
                 <TouchableOpacity
@@ -297,7 +333,7 @@ export default function TimerScreen() {
                 >
                   <FontAwesome
                     name="play"
-                    size={24}
+                    size={20}
                     color="#fff"
                     style={{ marginLeft: 3 }}
                   />
@@ -324,12 +360,21 @@ export default function TimerScreen() {
                 >
                   <FontAwesome
                     name="play"
-                    size={26}
+                    size={22}
                     color="#fff"
-                    style={{ marginLeft: 4 }}
+                    style={{ marginLeft: 3 }}
                   />
                 </TouchableOpacity>
               )}
+
+              {/* Right: 30s Button (+30s timer) */}
+              <TouchableOpacity
+                style={styles.controlBtn30s}
+                onPress={handleAdd30s}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.controlBtn30sText}>30s</Text>
+              </TouchableOpacity>
             </View>
 
             {/* Custom Duration Card (Above Preset, automatically reflects to Circle) */}
@@ -339,11 +384,13 @@ export default function TimerScreen() {
                   <Text style={styles.customInputLabel}>MIN</Text>
                   <TextInput
                     style={styles.customInput}
+                    textAlign="center"
+                    textAlignVertical="center"
                     keyboardType="number-pad"
-                    placeholder="0"
-                    placeholderTextColor="#C7C7CC"
                     value={customMin}
                     onChangeText={handleCustomMinChange}
+                    onBlur={handleCustomMinBlur}
+                    selectTextOnFocus
                     maxLength={2}
                     returnKeyType="done"
                     onSubmitEditing={Keyboard.dismiss}
@@ -356,11 +403,13 @@ export default function TimerScreen() {
                   <Text style={styles.customInputLabel}>SEC</Text>
                   <TextInput
                     style={styles.customInput}
+                    textAlign="center"
+                    textAlignVertical="center"
                     keyboardType="number-pad"
-                    placeholder="00"
-                    placeholderTextColor="#C7C7CC"
                     value={customSec}
                     onChangeText={handleCustomSecChange}
+                    onBlur={handleCustomSecBlur}
+                    selectTextOnFocus
                     maxLength={2}
                     returnKeyType="done"
                     onSubmitEditing={Keyboard.dismiss}
@@ -503,9 +552,9 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   controlBtnSquare: {
-    width: 62,
-    height: 62,
-    borderRadius: 31,
+    width: 58,
+    height: 58,
+    borderRadius: 29,
     backgroundColor: '#fff',
     borderWidth: 1.5,
     borderColor: '#E5E5EA',
@@ -524,16 +573,16 @@ const styles = StyleSheet.create({
     shadowOpacity: 0,
   },
   primaryActionBtn: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
+    width: 58,
+    height: 58,
+    borderRadius: 29,
     alignItems: 'center',
     justifyContent: 'center',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.18,
-    shadowRadius: 6,
-    elevation: 4,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.16,
+    shadowRadius: 5,
+    elevation: 3,
   },
   startActionBtn: {
     backgroundColor: '#007AFF',
@@ -546,6 +595,26 @@ const styles = StyleSheet.create({
   resumeActionBtn: {
     backgroundColor: '#34C759',
     shadowColor: '#34C759',
+  },
+  controlBtn30s: {
+    width: 58,
+    height: 58,
+    borderRadius: 29,
+    backgroundColor: '#fff',
+    borderWidth: 1.5,
+    borderColor: '#E5E5EA',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 3,
+    elevation: 2,
+  },
+  controlBtn30sText: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#007AFF',
   },
   card: {
     backgroundColor: '#fff',
@@ -584,6 +653,10 @@ const styles = StyleSheet.create({
     backgroundColor: '#F2F2F7',
     borderRadius: 12,
     textAlign: 'center',
+    textAlignVertical: 'center',
+    paddingHorizontal: 0,
+    paddingVertical: 0,
+    includeFontPadding: false,
     fontSize: 22,
     fontWeight: '700',
     color: '#1C1C1E',
