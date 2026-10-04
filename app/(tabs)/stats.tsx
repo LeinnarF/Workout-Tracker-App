@@ -24,6 +24,7 @@ import {
   Exercise,
   SetRecord,
   WeeklyRepStat,
+  DailyStat,
   TimeRange,
   ExercisePR,
   LifetimeStats,
@@ -129,9 +130,7 @@ export default function StatsScreen() {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [timeRange, setTimeRange] = useState<TimeRange>('ALL');
   const [loadingChart, setLoadingChart] = useState(false);
-  const [chartData, setChartData] = useState<
-    { date: string; volume: number; bestE1rm: number; bestWeight: number }[]
-  >([]);
+  const [chartData, setChartData] = useState<DailyStat[]>([]);
   const [weeklyData, setWeeklyData] = useState<WeeklyRepStat[]>([]);
 
   const loadOverview = useCallback(async () => {
@@ -225,6 +224,9 @@ export default function StatsScreen() {
   };
 
   const selectedExerciseObj = exercises.find((e) => e.id === selectedEx);
+  const targetSets = selectedExerciseObj?.target_sets ?? 3;
+  const repMax = selectedExerciseObj?.rep_max ?? 10;
+  const maxTargetReps = Math.max(1, targetSets * repMax);
 
   const chartWidth = Math.max(260, windowWidth - 64);
 
@@ -238,6 +240,45 @@ export default function StatsScreen() {
     value: d.bestWeight,
     label: d.date.slice(5),
   }));
+
+  // Map daily chart data for Rep Count BarChart
+  const dailyRepBarData = chartData.map((d) => {
+    const isOverload =
+      d.totalReps >= maxTargetReps ||
+      (d.setReps &&
+        d.setReps.length >= targetSets &&
+        d.setReps.slice(0, targetSets).every((r) => r >= repMax));
+
+    return {
+      value: Math.min(d.totalReps, maxTargetReps),
+      actualReps: d.totalReps,
+      label: d.date.slice(5),
+      frontColor: isOverload ? colors.accent : colors.raised,
+      topLabelComponent: () => (
+        <Text
+          style={{
+            fontSize: 9,
+            fontFamily: 'IBMPlexMono_600SemiBold',
+            color: isOverload ? colors.accent : colors.textMuted,
+            marginBottom: 2,
+            textAlign: 'center',
+          }}
+        >
+          {d.totalReps}
+        </Text>
+      ),
+    };
+  });
+
+  const latestDaily = chartData.length > 0 ? chartData[chartData.length - 1] : null;
+  const latestReps = latestDaily ? latestDaily.totalReps : 0;
+  const latestIsOverload = latestDaily
+    ? latestReps >= maxTargetReps ||
+      (latestDaily.setReps &&
+        latestDaily.setReps.length >= targetSets &&
+        latestDaily.setReps.slice(0, targetSets).every((r) => r >= repMax))
+    : false;
+  const dailyRepSections = maxTargetReps % 4 === 0 ? 4 : maxTargetReps % 3 === 0 ? 3 : 2;
 
   // Map weekly data for BarChart
   const weeklyBarData = weeklyData.map((w) => ({
@@ -661,6 +702,109 @@ export default function StatsScreen() {
                 />
               </View>
 
+              {/* Daily Session Reps Bar Chart and Rep Count Counter */}
+              {dailyRepBarData.length > 0 && (
+                <View style={[styles.chartCard, { borderColor: colors.outline, backgroundColor: colors.surface }]}>
+                  <View style={styles.chartTitleRow}>
+                    <View>
+                      <Text variant="label" color="primary">
+                        SESSION REPS (PER DAY)
+                      </Text>
+                      <Text variant="micro" color="muted" style={{ marginTop: 2 }}>
+                        TARGET: {maxTargetReps} REPS ({targetSets} SETS × {repMax} MAX)
+                      </Text>
+                    </View>
+                    <Badge
+                      label={latestIsOverload ? 'OVERLOAD ACHIEVED' : `${latestReps}/${maxTargetReps} REPS`}
+                      variant={latestIsOverload ? 'overload' : 'neutral'}
+                    />
+                  </View>
+
+                  {/* Latest Session Counter Meter */}
+                  {latestDaily && (
+                    <View style={[styles.counterContainer, { borderColor: colors.outline, backgroundColor: colors.background }]}>
+                      <View style={styles.counterRow}>
+                        <Text variant="micro" color="muted">
+                          LATEST ({latestDaily.date.slice(5)})
+                        </Text>
+                        <Text
+                          variant="micro"
+                          color={latestIsOverload ? 'accent' : 'muted'}
+                          style={{ fontFamily: 'IBMPlexMono_600SemiBold' }}
+                        >
+                          {latestIsOverload
+                            ? `OVERLOAD READY (+${selectedExerciseObj?.increment_lb ?? 5} LB NEXT)`
+                            : `${Math.max(0, maxTargetReps - latestReps)} REPS TO OVERLOAD`}
+                        </Text>
+                      </View>
+
+                      <View style={[styles.counterBarTrack, { backgroundColor: colors.raised, borderColor: colors.outline }]}>
+                        <View
+                          style={[
+                            styles.counterBarFill,
+                            {
+                              width: `${Math.min(100, Math.round((latestReps / maxTargetReps) * 100))}%`,
+                              backgroundColor: latestIsOverload ? colors.accent : colors.textMuted,
+                            },
+                          ]}
+                        />
+                      </View>
+
+                      <View style={styles.counterRow}>
+                        <Text variant="title" color={latestIsOverload ? 'accent' : 'primary'}>
+                          {latestReps}{' '}
+                          <Text variant="micro" color="muted">
+                            / {maxTargetReps} REPS
+                          </Text>
+                        </Text>
+                        <Text variant="micro" color="muted">
+                          {Math.min(100, Math.round((latestReps / maxTargetReps) * 100))}% CAPACITY
+                        </Text>
+                      </View>
+                    </View>
+                  )}
+
+                  <BarChart
+                    data={dailyRepBarData}
+                    width={chartWidth}
+                    height={160}
+                    barWidth={18}
+                    spacing={14}
+                    roundedTop={false}
+                    roundedBottom={false}
+                    rulesColor={colors.outline}
+                    xAxisColor={colors.outline}
+                    yAxisColor={colors.outline}
+                    maxValue={maxTargetReps}
+                    noOfSections={dailyRepSections}
+                    showReferenceLine1={true}
+                    referenceLine1Position={maxTargetReps}
+                    referenceLine1Config={{
+                      color: colors.accent,
+                      dashWidth: 4,
+                      dashGap: 4,
+                      thickness: 1,
+                    }}
+                    xAxisLabelTextStyle={{
+                      color: colors.textMuted,
+                      fontSize: 10,
+                      fontFamily: 'IBMPlexMono_500Medium',
+                      transform: [{ rotate: '-45deg' }],
+                      width: 44,
+                      marginLeft: -8,
+                    }}
+                    labelsExtraHeight={24}
+                    labelsDistanceFromXaxis={8}
+                    yAxisTextStyle={{
+                      color: colors.textMuted,
+                      fontSize: 10,
+                      fontFamily: 'IBMPlexMono_500Medium',
+                    }}
+                    initialSpacing={10}
+                  />
+                </View>
+              )}
+
               {/* Weekly Rep Volume Bar Chart */}
               {weeklyBarData.length > 0 && (
                 <View style={[styles.chartCard, { borderColor: colors.outline, backgroundColor: colors.surface }]}>
@@ -686,7 +830,12 @@ export default function StatsScreen() {
                       color: colors.textMuted,
                       fontSize: 10,
                       fontFamily: 'IBMPlexMono_500Medium',
+                      transform: [{ rotate: '-45deg' }],
+                      width: 44,
+                      marginLeft: -8,
                     }}
+                    labelsExtraHeight={24}
+                    labelsDistanceFromXaxis={8}
                     yAxisTextStyle={{
                       color: colors.textMuted,
                       fontSize: 10,
@@ -972,6 +1121,28 @@ const styles = StyleSheet.create({
     width: 8,
     height: 8,
     borderRadius: 0,
+  },
+  counterContainer: {
+    borderWidth: 1,
+    borderRadius: 0,
+    padding: 12,
+    marginBottom: 16,
+  },
+  counterRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  counterBarTrack: {
+    height: 6,
+    width: '100%',
+    borderWidth: 1,
+    marginVertical: 8,
+    borderRadius: 0,
+    overflow: 'hidden',
+  },
+  counterBarFill: {
+    height: '100%',
   },
   historyContainer: {
     borderWidth: 1,

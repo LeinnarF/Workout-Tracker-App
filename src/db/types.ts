@@ -37,6 +37,15 @@ export interface WeeklyRepStat {
   weights: number[];
 }
 
+export interface DailyStat {
+  date: string;
+  volume: number;
+  bestE1rm: number;
+  bestWeight: number;
+  totalReps: number;
+  setReps: number[];
+}
+
 export type TimeRange = '4W' | '3M' | '1Y' | 'ALL';
 
 export interface ExercisePR {

@@ -3,6 +3,7 @@ import {
   Session,
   SetRecord,
   WeeklyRepStat,
+  DailyStat,
   TimeRange,
   ExercisePR,
   LifetimeStats,
@@ -87,18 +88,23 @@ export async function getStatsForExercise(
 
   const sets = await db.getAllAsync<SetRecord & { started_at: string }>(query, params);
 
-  // Compute daily stats (volume and best e1rm per date)
-  const statsBySession: Record<string, { volume: number; bestE1rm: number; bestWeight: number }> = {};
+  // Compute daily stats (volume, best e1rm, best weight, total reps, set reps per date)
+  const statsBySession: Record<
+    string,
+    { volume: number; bestE1rm: number; bestWeight: number; totalReps: number; setReps: number[] }
+  > = {};
   // Compute weekly stats (total reps and weight tracking per week)
   const weekGroups: Record<string, { totalReps: number; weights: number[] }> = {};
 
   for (const set of sets) {
     const date = set.started_at.split('T')[0];
     if (!statsBySession[date]) {
-      statsBySession[date] = { volume: 0, bestE1rm: 0, bestWeight: 0 };
+      statsBySession[date] = { volume: 0, bestE1rm: 0, bestWeight: 0, totalReps: 0, setReps: [] };
     }
 
     statsBySession[date].volume += set.weight_lb * set.reps;
+    statsBySession[date].totalReps += set.reps;
+    statsBySession[date].setReps.push(set.reps);
 
     const e1rm = calculateE1RM(set.weight_lb, set.reps);
     if (e1rm > statsBySession[date].bestE1rm) {
@@ -118,7 +124,7 @@ export async function getStatsForExercise(
     weekGroups[weekStart].weights.push(set.weight_lb);
   }
 
-  const daily = Object.keys(statsBySession).map((date) => ({
+  const daily: DailyStat[] = Object.keys(statsBySession).map((date) => ({
     date,
     ...statsBySession[date],
   }));
