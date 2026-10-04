@@ -10,7 +10,7 @@ import { File, Paths } from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
 import * as DocumentPicker from 'expo-document-picker';
 import * as Haptics from 'expo-haptics';
-import { Share2, Download, Upload, ChevronRight, ShieldCheck, Trash2, Database } from 'lucide-react-native';
+import { Share2, Download, Upload, ChevronRight, ShieldCheck, Trash2, Database, Check } from 'lucide-react-native';
 
 import { Session, Exercise, SetRecord } from '../../src/db/types';
 import { ensurePresetExercises } from '../../src/db/queries';
@@ -336,9 +336,11 @@ export default function SettingsScreen() {
         <View style={styles.accentGrid}>
           {ACCENT_COLORS.map((accent) => {
             const isSelected = accentColor === accent;
-            const swatch = isDark
-              ? accentPalettes[accent].dark.accent
-              : accentPalettes[accent].light.accent;
+            const palette = isDark
+              ? accentPalettes[accent].dark
+              : accentPalettes[accent].light;
+            const swatch = palette.accent;
+            const checkColor = palette.onAccent;
 
             return (
               <Pressable
@@ -350,13 +352,12 @@ export default function SettingsScreen() {
                 accessibilityLabel={accent}
                 style={[
                   styles.accentButton,
-                  {
-                    backgroundColor: isSelected ? colors.raised : colors.surface,
-                    borderColor: isSelected ? colors.accent : colors.outline,
-                  },
+                  { backgroundColor: swatch },
                 ]}
               >
-                <View style={[styles.swatchBox, { backgroundColor: swatch }]} />
+                {isSelected && (
+                  <Check size={18} color={checkColor} strokeWidth={2.5} />
+                )}
               </Pressable>
             );
           })}
@@ -611,12 +612,6 @@ const styles = StyleSheet.create({
     height: 40,
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 1,
-    borderRadius: 2,
-  },
-  swatchBox: {
-    width: 20,
-    height: 20,
     borderRadius: 2,
   },
 });
