@@ -492,7 +492,6 @@ export default function StatsScreen() {
                         <Text variant="title" color="primary">
                           {pr.exerciseName}
                         </Text>
-                        <Badge label="PR" variant="pr" />
                       </View>
 
                       <View style={styles.prGridRow}>
