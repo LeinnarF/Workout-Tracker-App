@@ -464,7 +464,7 @@ export default function StatsScreen() {
                           {item.exerciseName}
                         </Text>
                         <Text variant="label" color="muted">
-                          {item.currentWeightLb} LB · {item.targetSets}×{item.repMax} REPS
+                          {item.currentWeightLb} LB · {item.targetSets}×{item.repMax}
                         </Text>
                       </View>
 

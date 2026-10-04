@@ -409,7 +409,7 @@ export default function LogScreen() {
                   </Text>
                   <View style={styles.exerciseMetaRow}>
                     <Text variant="label" color="muted">
-                      {ex.target_sets} × {ex.rep_min}-{ex.rep_max} REPS
+                      {ex.target_sets} × {ex.rep_min}-{ex.rep_max}
                     </Text>
                     {ex.tags && ex.tags.length > 0 && (
                       <View style={styles.exerciseTagsRow}>
@@ -605,7 +605,7 @@ const styles = StyleSheet.create({
     padding: 4,
   },
   listContainer: {
-    gap: 5,
+    gap: 8,
   },
   exerciseItem: {
     width: '100%',
