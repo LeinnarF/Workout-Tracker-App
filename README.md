@@ -35,11 +35,11 @@ A fast, clean, and **100% offline-first** mobile workout tracker built with **Ex
 - **Expandable Workout History**: View every past session with full set breakdown (`Set 1: 50 lb × 4`), top weights lifted, and total volume.
 
 ### 4. ⏱️ Rest Timer
-- **Odometer Scrolling Wheel Picker (Default View)**: Select rest duration by scrolling vertical number drums for Minutes (`0–15 min`) and Seconds (`0–55s` in 5s increments), preconfigured to `1:30` default with tactile haptic feedback.
-- **Circular Progress Dial (Active View)**: Automatically activates once started with an SVG vector arc dial (`react-native-svg`), live status badge (`RESTING`, `PAUSED`), and countdown digits.
-- **Quick Rest Presets**: One-tap presets (`30s`, `1:00`, `1:30`, `2:00`, `2:30`, `3:00`) that visually spin and roll the odometer wheels into place.
-- **Quick Extension**: Instant `+30s` button to extend rest periods mid-countdown.
-- **Screen Keep-Awake & Haptics**: Keeps your phone awake while counting down and triggers tactile vibration alerts.
+- **Circular Progress Dial**: High-resolution vector dial (`react-native-svg`) displaying remaining time, current status (`READY`, `RESTING`, `PAUSED`), and an active progress arc.
+- **Minimalist Transport Controls**: Intuitive square (■ stop/reset) and triangle/pause (▶ start/resume, ❚❚ pause) buttons.
+- **Quick Rest Presets**: One-tap buttons for `30s`, `1:00`, `1:30`, `2:00`, `2:30`, and `3:00` to set rest periods instantly.
+- **Custom Duration Input**: Direct input fields for Minutes and Seconds to customize any specific rest period.
+- **Screen Keep-Awake & Haptics**: Keeps your phone awake while counting down and triggers tactile vibration alerts on completion.
 
 ### 5. ⚖️ Weight Converter & Plate Calculator
 - **Bi-directional Conversion**: Instant real-time conversion between Pounds (lb) and Kilograms (kg).

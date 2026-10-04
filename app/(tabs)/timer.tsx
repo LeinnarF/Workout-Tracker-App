@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState } from 'react';
 import {
   StyleSheet,
   Text,
@@ -6,152 +6,23 @@ import {
   SafeAreaView,
   TouchableOpacity,
   ScrollView,
-  NativeSyntheticEvent,
-  NativeScrollEvent,
+  TextInput,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import Svg, { Circle } from 'react-native-svg';
 import * as Haptics from 'expo-haptics';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { useTimer } from '../../src/timer/TimerContext';
 
-const MINUTES_DATA = Array.from({ length: 16 }, (_, i) => i); // 0 to 15
-const SECONDS_DATA = Array.from({ length: 60 }, (_, i) => i); // 0 to 59
-
 const PRESETS = [
-  { label: '30s', min: 0, sec: 30, ms: 30 * 1000 },
-  { label: '1:00', min: 1, sec: 0, ms: 60 * 1000 },
-  { label: '1:30', min: 1, sec: 30, ms: 90 * 1000 },
-  { label: '2:00', min: 2, sec: 0, ms: 120 * 1000 },
-  { label: '2:30', min: 2, sec: 30, ms: 150 * 1000 },
-  { label: '3:00', min: 3, sec: 0, ms: 180 * 1000 },
+  { label: '30s', ms: 30 * 1000 },
+  { label: '1:00', ms: 60 * 1000 },
+  { label: '1:30', ms: 90 * 1000 },
+  { label: '2:00', ms: 120 * 1000 },
+  { label: '2:30', ms: 150 * 1000 },
+  { label: '3:00', ms: 180 * 1000 },
 ];
-
-const ITEM_HEIGHT = 90;
-const VISIBLE_COUNT = 3;
-const PICKER_HEIGHT = ITEM_HEIGHT * VISIBLE_COUNT; // 270
-const PADDING = (PICKER_HEIGHT - ITEM_HEIGHT) / 2; // exactly 90 (1 item height above & below)
-
-interface OdometerWheelProps {
-  items: number[];
-  selectedValue: number;
-  onValueChange: (val: number) => void;
-}
-
-function OdometerWheel({
-  items,
-  selectedValue,
-  onValueChange,
-}: OdometerWheelProps) {
-  const scrollRef = useRef<ScrollView>(null);
-  const isUserScrollingRef = useRef(false);
-
-  const isFirstMount = useRef(true);
-
-  // Sync scroll position when selectedValue changes externally (e.g. presets)
-  useEffect(() => {
-    if (isFirstMount.current) {
-      isFirstMount.current = false;
-      const initialIdx = items.indexOf(selectedValue);
-      if (initialIdx !== -1) {
-        scrollRef.current?.scrollTo({
-          y: initialIdx * ITEM_HEIGHT,
-          animated: false,
-        });
-      }
-      return;
-    }
-
-    if (!isUserScrollingRef.current) {
-      const targetIndex = items.indexOf(selectedValue);
-      if (targetIndex !== -1) {
-        scrollRef.current?.scrollTo({
-          y: targetIndex * ITEM_HEIGHT,
-          animated: true,
-        });
-      }
-    }
-  }, [selectedValue, items]);
-
-  const handleScrollBegin = () => {
-    isUserScrollingRef.current = true;
-  };
-
-  const handleScrollEnd = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
-    isUserScrollingRef.current = false;
-    const y = e.nativeEvent.contentOffset.y;
-    const index = Math.max(0, Math.min(items.length - 1, Math.round(y / ITEM_HEIGHT)));
-    const newValue = items[index];
-    if (newValue !== selectedValue) {
-      try {
-        Haptics.selectionAsync();
-      } catch {
-        // ignore
-      }
-      onValueChange(newValue);
-    }
-  };
-
-  return (
-    <View style={styles.wheelColumn}>
-      <View style={styles.wheelWindow}>
-        <ScrollView
-          ref={scrollRef}
-          showsVerticalScrollIndicator={false}
-          snapToInterval={ITEM_HEIGHT}
-          snapToAlignment="center"
-          decelerationRate="fast"
-          nestedScrollEnabled={true}
-          onScrollBeginDrag={handleScrollBegin}
-          onScrollEndDrag={handleScrollEnd}
-          onMomentumScrollEnd={handleScrollEnd}
-          contentContainerStyle={{
-            paddingVertical: PADDING,
-          }}
-        >
-          {items.map((item, index) => {
-            const isSelected = item === selectedValue;
-            return (
-              <TouchableOpacity
-                key={item}
-                style={styles.wheelItem}
-                activeOpacity={0.7}
-                onPress={() => {
-                  scrollRef.current?.scrollTo({
-                    y: index * ITEM_HEIGHT,
-                    animated: true,
-                  });
-                  if (item !== selectedValue) {
-                    try {
-                      Haptics.selectionAsync();
-                    } catch {
-                      // ignore
-                    }
-                    onValueChange(item);
-                  }
-                }}
-              >
-                <Text
-                  style={[
-                    styles.wheelItemText,
-                    isSelected && styles.wheelItemTextSelected,
-                  ]}
-                >
-                  {item.toString().padStart(2, '0')}
-                </Text>
-              </TouchableOpacity>
-            );
-          })}
-        </ScrollView>
-
-        {/* Top Fade Gradient Mask */}
-        <View style={styles.fadeMaskTop} pointerEvents="none" />
-
-        {/* Bottom Fade Gradient Mask */}
-        <View style={styles.fadeMaskBottom} pointerEvents="none" />
-      </View>
-    </View>
-  );
-}
 
 export default function TimerScreen() {
   const {
@@ -161,71 +32,77 @@ export default function TimerScreen() {
     startTimer,
     pauseTimer,
     resetTimer,
-    addTime,
   } = useTimer();
 
-  // Odometer selection states, defaulting to 1:30
-  const [selectedMin, setSelectedMin] = useState(1);
-  const [selectedSec, setSelectedSec] = useState(30);
+  const [selectedDurationMs, setSelectedDurationMs] = useState(90 * 1000); // 1:30 default
+  const [customMin, setCustomMin] = useState('');
+  const [customSec, setCustomSec] = useState('');
 
-  const totalSelectedSeconds = selectedMin * 60 + selectedSec;
-
-  const formatCountdown = (ms: number) => {
+  const formatTime = (ms: number) => {
     const totalSec = Math.floor(ms / 1000);
     const m = Math.floor(totalSec / 60);
     const s = totalSec % 60;
     return `${m}:${s.toString().padStart(2, '0')}`;
   };
 
-  const handleStart = () => {
-    if (totalSelectedSeconds > 0) {
+  const handleStartCustom = () => {
+    const m = parseInt(customMin, 10) || 0;
+    const s = parseInt(customSec, 10) || 0;
+    const totalMs = (m * 60 + s) * 1000;
+    if (totalMs > 0) {
       try {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
       } catch {
         // ignore
       }
-      startTimer(totalSelectedSeconds * 1000);
+      setSelectedDurationMs(totalMs);
+      startTimer(totalMs);
+      setCustomMin('');
+      setCustomSec('');
     }
   };
 
-  const handlePresetSelect = (min: number, sec: number) => {
+  const handleSelectPreset = (ms: number) => {
     try {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     } catch {
       // ignore
     }
-    setSelectedMin(min);
-    setSelectedSec(sec);
+    setSelectedDurationMs(ms);
+    startTimer(ms);
   };
 
-  // Dial calculations for active countdown mode
-  const size = 220;
+  // Dial calculations
+  const size = 230;
   const strokeWidth = 8;
   const radius = (size - strokeWidth) / 2;
   const circumference = 2 * Math.PI * radius;
+
+  const isTimerActive = isRunning || timeRemainingMs > 0;
   const progress =
     initialDurationMs > 0
       ? Math.min(1, Math.max(0, timeRemainingMs / initialDurationMs))
-      : timeRemainingMs > 0
-      ? 1
-      : 0;
+      : 1;
   const strokeDashoffset = circumference * (1 - progress);
 
-  const isTimerActive = isRunning || timeRemainingMs > 0;
+  const displayMs = isTimerActive ? timeRemainingMs : selectedDurationMs;
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      {isTimerActive ? (
-        /* ======================================================== */
-        /* ACTIVE STATE: Circle Timer Progress Dial                 */
-        /* ======================================================== */
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      >
         <ScrollView
-          contentContainerStyle={styles.activeContainer}
+          contentContainerStyle={styles.container}
           showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
         >
+          {/* Circular Progress Dial */}
           <View style={styles.dialContainer}>
             <View style={styles.dialWrapper}>
               <Svg width={size} height={size} style={styles.svgRing}>
+                {/* Background Track */}
                 <Circle
                   cx={size / 2}
                   cy={size / 2}
@@ -234,14 +111,21 @@ export default function TimerScreen() {
                   strokeWidth={strokeWidth}
                   fill="transparent"
                 />
+                {/* Progress Arc */}
                 <Circle
                   cx={size / 2}
                   cy={size / 2}
                   r={radius}
-                  stroke={isRunning ? '#007AFF' : '#FF9500'}
+                  stroke={
+                    isRunning
+                      ? '#007AFF'
+                      : isTimerActive
+                      ? '#FF9500'
+                      : '#007AFF'
+                  }
                   strokeWidth={strokeWidth}
                   strokeDasharray={circumference}
-                  strokeDashoffset={strokeDashoffset}
+                  strokeDashoffset={isTimerActive ? strokeDashoffset : 0}
                   strokeLinecap="round"
                   fill="transparent"
                   rotation="-90"
@@ -249,13 +133,16 @@ export default function TimerScreen() {
                 />
               </Svg>
 
+              {/* Inside dial text */}
               <View style={styles.dialContent}>
                 <View
                   style={[
                     styles.statusBadge,
                     isRunning
                       ? styles.statusBadgeRunning
-                      : styles.statusBadgePaused,
+                      : isTimerActive
+                      ? styles.statusBadgePaused
+                      : styles.statusBadgeReady,
                   ]}
                 >
                   <View
@@ -263,7 +150,9 @@ export default function TimerScreen() {
                       styles.statusDot,
                       isRunning
                         ? styles.statusDotRunning
-                        : styles.statusDotPaused,
+                        : isTimerActive
+                        ? styles.statusDotPaused
+                        : styles.statusDotReady,
                     ]}
                   />
                   <Text
@@ -271,59 +160,52 @@ export default function TimerScreen() {
                       styles.statusText,
                       isRunning
                         ? styles.statusTextRunning
-                        : styles.statusTextPaused,
+                        : isTimerActive
+                        ? styles.statusTextPaused
+                        : styles.statusTextReady,
                     ]}
                   >
-                    {isRunning ? 'RESTING' : 'PAUSED'}
+                    {isRunning ? 'RESTING' : isTimerActive ? 'PAUSED' : 'READY'}
                   </Text>
                 </View>
 
-                <Text style={styles.timeDisplay}>
-                  {formatCountdown(timeRemainingMs)}
-                </Text>
-
-                <TouchableOpacity
-                  style={styles.quickAddPill}
-                  onPress={() => {
-                    try {
-                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                    } catch {
-                      // ignore
-                    }
-                    addTime(30 * 1000);
-                  }}
-                  activeOpacity={0.7}
-                >
-                  <FontAwesome name="plus" size={10} color="#007AFF" />
-                  <Text style={styles.quickAddText}>30s</Text>
-                </TouchableOpacity>
+                <Text style={styles.timeDisplay}>{formatTime(displayMs)}</Text>
               </View>
             </View>
           </View>
 
-          {/* Controls Row */}
+          {/* Controls Row: Square (Stop/Reset) and Triangle/Pause (Play/Pause) */}
           <View style={styles.controlsRow}>
-            {/* Reset Button (stops timer and returns to odometer picker) */}
+            {/* Square Button: Stop / Reset */}
             <TouchableOpacity
-              style={styles.secondaryBtn}
+              style={[
+                styles.controlBtnSquare,
+                !isTimerActive && styles.controlBtnDisabled,
+              ]}
               onPress={() => {
-                try {
-                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                } catch {
-                  // ignore
+                if (isTimerActive) {
+                  try {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                  } catch {
+                    // ignore
+                  }
+                  resetTimer();
                 }
-                resetTimer();
               }}
+              disabled={!isTimerActive}
               activeOpacity={0.7}
             >
-              <FontAwesome name="rotate-left" size={15} color="#FF3B30" />
-              <Text style={styles.secondaryBtnText}>Reset</Text>
+              <FontAwesome
+                name="stop"
+                size={18}
+                color={isTimerActive ? '#FF3B30' : '#C7C7CC'}
+              />
             </TouchableOpacity>
 
-            {/* Pause / Resume Button */}
+            {/* Triangle / Pause Button: Play / Pause / Resume */}
             {isRunning ? (
               <TouchableOpacity
-                style={[styles.primaryBtn, styles.pauseBtn]}
+                style={[styles.primaryActionBtn, styles.pauseActionBtn]}
                 onPress={() => {
                   try {
                     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
@@ -334,17 +216,11 @@ export default function TimerScreen() {
                 }}
                 activeOpacity={0.8}
               >
-                <FontAwesome
-                  name="pause"
-                  size={16}
-                  color="#fff"
-                  style={{ marginRight: 8 }}
-                />
-                <Text style={styles.primaryBtnText}>Pause</Text>
+                <FontAwesome name="pause" size={24} color="#fff" />
               </TouchableOpacity>
-            ) : (
+            ) : isTimerActive ? (
               <TouchableOpacity
-                style={[styles.primaryBtn, styles.resumeBtn]}
+                style={[styles.primaryActionBtn, styles.resumeActionBtn]}
                 onPress={() => {
                   try {
                     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
@@ -357,146 +233,107 @@ export default function TimerScreen() {
               >
                 <FontAwesome
                   name="play"
-                  size={16}
+                  size={24}
                   color="#fff"
-                  style={{ marginRight: 8 }}
+                  style={{ marginLeft: 3 }}
                 />
-                <Text style={styles.primaryBtnText}>Resume</Text>
+              </TouchableOpacity>
+            ) : (
+              <TouchableOpacity
+                style={[styles.primaryActionBtn, styles.startActionBtn]}
+                onPress={() => {
+                  try {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                  } catch {
+                    // ignore
+                  }
+                  startTimer(selectedDurationMs);
+                }}
+                activeOpacity={0.8}
+              >
+                <FontAwesome
+                  name="play"
+                  size={26}
+                  color="#fff"
+                  style={{ marginLeft: 4 }}
+                />
               </TouchableOpacity>
             )}
-
-            {/* Quick +30s Extension */}
-            <TouchableOpacity
-              style={styles.secondaryBtn}
-              onPress={() => {
-                try {
-                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                } catch {
-                  // ignore
-                }
-                addTime(30 * 1000);
-              }}
-              activeOpacity={0.7}
-            >
-              <FontAwesome name="plus" size={13} color="#007AFF" />
-              <Text style={[styles.secondaryBtnText, { color: '#007AFF' }]}>
-                +30s
-              </Text>
-            </TouchableOpacity>
           </View>
 
-          {/* Adjust Duration Link */}
-          <TouchableOpacity
-            style={styles.adjustLink}
-            onPress={() => {
-              try {
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-              } catch {
-                // ignore
-              }
-              resetTimer();
-            }}
-            activeOpacity={0.7}
-          >
-            <FontAwesome name="sliders" size={13} color="#8E8E93" />
-            <Text style={styles.adjustLinkText}>Change Rest Duration</Text>
-          </TouchableOpacity>
-        </ScrollView>
-      ) : (
-        /* ======================================================== */
-        /* DEFAULT STATE: 70% Timer Setter, 30% Presets & Button     */
-        /* ======================================================== */
-        <View style={styles.setterContainer}>
-          {/* Top Section: ~70% of screen */}
-          <View style={styles.setterTopSection}>
-            {/* Header Badge */}
-            <View style={styles.badgePill}>
-              <FontAwesome name="hourglass-half" size={11} color="#007AFF" />
-              <Text style={styles.badgeText}>REST TIMER</Text>
-            </View>
-
-            {/* Giant Odometer Drum Container */}
-            <View style={styles.odometerCard}>
-              <View style={styles.odometerWheelsRow}>
-                {/* Minutes Drum Wheel */}
-                <OdometerWheel
-                  items={MINUTES_DATA}
-                  selectedValue={selectedMin}
-                  onValueChange={setSelectedMin}
-                />
-
-                {/* Center Colon Separator */}
-                <View style={styles.colonContainer} pointerEvents="none">
-                  <Text style={styles.colonText}>:</Text>
-                </View>
-
-                {/* Seconds Drum Wheel */}
-                <OdometerWheel
-                  items={SECONDS_DATA}
-                  selectedValue={selectedSec}
-                  onValueChange={setSelectedSec}
-                />
-              </View>
-            </View>
-          </View>
-
-          {/* Bottom Section: ~30% of screen */}
-          <View style={styles.setterBottomSection}>
-            {/* Quick Presets Grid */}
-            <View style={styles.presetsCard}>
-              <View style={styles.presetsGrid}>
-                {PRESETS.map((p) => {
-                  const isSelected =
-                    selectedMin === p.min && selectedSec === p.sec;
-                  return (
-                    <TouchableOpacity
-                      key={p.label}
+          {/* Quick Presets Card (Title Removed) */}
+          <View style={styles.card}>
+            <View style={styles.presetsGrid}>
+              {PRESETS.map((p) => {
+                const isSelected =
+                  (isTimerActive && initialDurationMs === p.ms) ||
+                  (!isTimerActive && selectedDurationMs === p.ms);
+                return (
+                  <TouchableOpacity
+                    key={p.label}
+                    style={[
+                      styles.presetBtn,
+                      isSelected && styles.presetBtnActive,
+                    ]}
+                    onPress={() => handleSelectPreset(p.ms)}
+                    activeOpacity={0.7}
+                  >
+                    <Text
                       style={[
-                        styles.presetBtn,
-                        isSelected && styles.presetBtnActive,
+                        styles.presetBtnText,
+                        isSelected && styles.presetBtnTextActive,
                       ]}
-                      onPress={() => handlePresetSelect(p.min, p.sec)}
-                      activeOpacity={0.7}
                     >
-                      <Text
-                        style={[
-                          styles.presetBtnText,
-                          isSelected && styles.presetBtnTextActive,
-                        ]}
-                      >
-                        {p.label}
-                      </Text>
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
+                      {p.label}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
             </View>
-
-            {/* Start Timer CTA Button */}
-            <TouchableOpacity
-              style={[
-                styles.startCtaBtn,
-                totalSelectedSeconds === 0 && styles.startCtaBtnDisabled,
-              ]}
-              onPress={handleStart}
-              disabled={totalSelectedSeconds === 0}
-              activeOpacity={0.8}
-            >
-              <FontAwesome
-                name="play"
-                size={18}
-                color="#fff"
-                style={{ marginRight: 10 }}
-              />
-              <Text style={styles.startCtaBtnText}>
-                {totalSelectedSeconds > 0
-                  ? `Start Rest (${selectedMin.toString().padStart(2, '0')}:${selectedSec.toString().padStart(2, '0')})`
-                  : 'Select Duration'}
-              </Text>
-            </TouchableOpacity>
           </View>
-        </View>
-      )}
+
+          {/* Custom Duration Card (Title Removed) */}
+          <View style={styles.card}>
+            <View style={styles.customRow}>
+              <View style={styles.customInputGroup}>
+                <Text style={styles.customInputLabel}>MIN</Text>
+                <TextInput
+                  style={styles.customInput}
+                  keyboardType="number-pad"
+                  placeholder="0"
+                  placeholderTextColor="#C7C7CC"
+                  value={customMin}
+                  onChangeText={setCustomMin}
+                  maxLength={2}
+                />
+              </View>
+
+              <Text style={styles.customColon}>:</Text>
+
+              <View style={styles.customInputGroup}>
+                <Text style={styles.customInputLabel}>SEC</Text>
+                <TextInput
+                  style={styles.customInput}
+                  keyboardType="number-pad"
+                  placeholder="00"
+                  placeholderTextColor="#C7C7CC"
+                  value={customSec}
+                  onChangeText={setCustomSec}
+                  maxLength={2}
+                />
+              </View>
+
+              <TouchableOpacity
+                style={styles.customStartBtn}
+                onPress={handleStartCustom}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.customStartBtnText}>Set Timer</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
@@ -506,196 +343,20 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#F8F9FA',
   },
-  activeContainer: {
+  container: {
     padding: 20,
     alignItems: 'center',
     paddingBottom: 40,
   },
-  setterContainer: {
-    flex: 1,
-    paddingHorizontal: 20,
-    paddingTop: 12,
-    paddingBottom: 24,
-    justifyContent: 'space-between',
-  },
-  setterTopSection: {
-    flex: 0.7,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  setterBottomSection: {
-    flex: 0.3,
-    justifyContent: 'flex-end',
-    gap: 12,
-  },
-  badgePill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    backgroundColor: '#EFF6FF',
-    paddingHorizontal: 14,
-    paddingVertical: 6,
-    borderRadius: 14,
-    marginBottom: 16,
-  },
-  badgeText: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#007AFF',
-    letterSpacing: 0.8,
-  },
-  odometerCard: {
-    backgroundColor: '#fff',
-    borderRadius: 28,
-    borderWidth: 1,
-    borderColor: '#E5E5EA',
-    paddingVertical: 10,
-    paddingHorizontal: 12,
-    width: '100%',
-    height: PICKER_HEIGHT + 24,
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.05,
-    shadowRadius: 10,
-    elevation: 2,
-  },
-  odometerWheelsRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    width: '100%',
-  },
-  wheelColumn: {
-    flex: 1,
-    alignItems: 'center',
-  },
-  wheelWindow: {
-    height: PICKER_HEIGHT,
-    width: '100%',
-    position: 'relative',
-    overflow: 'hidden',
-  },
-  wheelItem: {
-    height: ITEM_HEIGHT,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  wheelItemText: {
-    fontSize: 38,
-    fontWeight: '600',
-    color: '#C7C7CC',
-    fontVariant: ['tabular-nums'],
-    opacity: 0.35,
-  },
-  wheelItemTextSelected: {
-    fontSize: 76,
-    fontWeight: '800',
-    color: '#1C1C1E',
-    opacity: 1,
-  },
-  colonContainer: {
-    width: 28,
-    height: PICKER_HEIGHT,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  colonText: {
-    fontSize: 58,
-    fontWeight: '800',
-    color: '#1C1C1E',
-  },
-  fadeMaskTop: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    height: PADDING,
-    backgroundColor: 'rgba(255, 255, 255, 0.8)',
-  },
-  fadeMaskBottom: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    height: PADDING,
-    backgroundColor: 'rgba(255, 255, 255, 0.8)',
-  },
-  presetsCard: {
-    backgroundColor: '#fff',
-    borderRadius: 18,
-    borderWidth: 1,
-    borderColor: '#E5E5EA',
-    padding: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.03,
-    shadowRadius: 2,
-    elevation: 1,
-  },
-  presetsGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-    justifyContent: 'space-between',
-  },
-  presetBtn: {
-    width: '31%',
-    backgroundColor: '#F2F2F7',
-    paddingVertical: 11,
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1.5,
-    borderColor: 'transparent',
-  },
-  presetBtnActive: {
-    backgroundColor: '#EFF6FF',
-    borderColor: '#007AFF',
-  },
-  presetBtnText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#1C1C1E',
-  },
-  presetBtnTextActive: {
-    color: '#007AFF',
-    fontWeight: '700',
-  },
-  startCtaBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#007AFF',
-    width: '100%',
-    paddingVertical: 16,
-    borderRadius: 16,
-    shadowColor: '#007AFF',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.25,
-    shadowRadius: 8,
-    elevation: 4,
-  },
-  startCtaBtnDisabled: {
-    backgroundColor: '#C7C7CC',
-    shadowOpacity: 0,
-    elevation: 0,
-  },
-  startCtaBtnText: {
-    color: '#fff',
-    fontSize: 17,
-    fontWeight: '700',
-  },
   dialContainer: {
     marginTop: 10,
-    marginBottom: 24,
+    marginBottom: 20,
     alignItems: 'center',
     justifyContent: 'center',
   },
   dialWrapper: {
-    width: 220,
-    height: 220,
+    width: 230,
+    height: 230,
     alignItems: 'center',
     justifyContent: 'center',
     position: 'relative',
@@ -724,6 +385,9 @@ const styles = StyleSheet.create({
   statusBadgePaused: {
     backgroundColor: '#FFF7ED',
   },
+  statusBadgeReady: {
+    backgroundColor: '#F2F2F7',
+  },
   statusDot: {
     width: 6,
     height: 6,
@@ -734,6 +398,9 @@ const styles = StyleSheet.create({
   },
   statusDotPaused: {
     backgroundColor: '#FF9500',
+  },
+  statusDotReady: {
+    backgroundColor: '#8E8E93',
   },
   statusText: {
     fontSize: 11,
@@ -746,6 +413,9 @@ const styles = StyleSheet.create({
   statusTextPaused: {
     color: '#FF9500',
   },
+  statusTextReady: {
+    color: '#8E8E93',
+  },
   timeDisplay: {
     fontSize: 56,
     fontWeight: '800',
@@ -753,88 +423,147 @@ const styles = StyleSheet.create({
     color: '#1C1C1E',
     letterSpacing: -1,
   },
-  quickAddPill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#EBF3FF',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 12,
-    marginTop: 6,
-    gap: 4,
-  },
-  quickAddText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#007AFF',
-  },
   controlsRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 12,
+    gap: 24,
     marginBottom: 24,
     width: '100%',
   },
-  primaryBtn: {
-    flexDirection: 'row',
+  controlBtnSquare: {
+    width: 62,
+    height: 62,
+    borderRadius: 31,
+    backgroundColor: '#fff',
+    borderWidth: 1.5,
+    borderColor: '#E5E5EA',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 14,
-    paddingHorizontal: 28,
-    borderRadius: 25,
-    minWidth: 140,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    shadowOpacity: 0.05,
+    shadowRadius: 3,
+    elevation: 2,
   },
-  pauseBtn: {
-    backgroundColor: '#FF9500',
+  controlBtnDisabled: {
+    opacity: 0.45,
+    borderColor: '#F2F2F7',
+    elevation: 0,
+    shadowOpacity: 0,
   },
-  resumeBtn: {
-    backgroundColor: '#34C759',
-  },
-  primaryBtnText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '700',
-  },
-  secondaryBtn: {
-    flexDirection: 'row',
+  primaryActionBtn: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
     alignItems: 'center',
     justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.18,
+    shadowRadius: 6,
+    elevation: 4,
+  },
+  startActionBtn: {
+    backgroundColor: '#007AFF',
+    shadowColor: '#007AFF',
+  },
+  pauseActionBtn: {
+    backgroundColor: '#FF9500',
+    shadowColor: '#FF9500',
+  },
+  resumeActionBtn: {
+    backgroundColor: '#34C759',
+    shadowColor: '#34C759',
+  },
+  card: {
     backgroundColor: '#fff',
+    borderRadius: 16,
     borderWidth: 1,
     borderColor: '#E5E5EA',
-    paddingVertical: 14,
-    paddingHorizontal: 16,
-    borderRadius: 25,
-    gap: 6,
+    padding: 16,
+    width: '100%',
+    marginBottom: 14,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.04,
+    shadowOpacity: 0.03,
     shadowRadius: 2,
     elevation: 1,
   },
-  secondaryBtnText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#FF3B30',
+  presetsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+    justifyContent: 'space-between',
   },
-  adjustLink: {
+  presetBtn: {
+    width: '31%',
+    backgroundColor: '#F2F2F7',
+    paddingVertical: 12,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: 'transparent',
+  },
+  presetBtnActive: {
+    backgroundColor: '#007AFF',
+    borderColor: '#007AFF',
+  },
+  presetBtnText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#1C1C1E',
+  },
+  presetBtnTextActive: {
+    color: '#fff',
+    fontWeight: '700',
+  },
+  customRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    paddingVertical: 10,
-    paddingHorizontal: 16,
-    borderRadius: 20,
-    backgroundColor: '#F2F2F7',
+    justifyContent: 'space-between',
+    gap: 10,
   },
-  adjustLinkText: {
-    fontSize: 13,
-    fontWeight: '600',
+  customInputGroup: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  customInputLabel: {
+    fontSize: 10,
+    fontWeight: '700',
     color: '#8E8E93',
+    marginBottom: 4,
+    letterSpacing: 0.5,
+  },
+  customInput: {
+    width: '100%',
+    height: 44,
+    backgroundColor: '#F2F2F7',
+    borderRadius: 10,
+    textAlign: 'center',
+    fontSize: 17,
+    fontWeight: '700',
+    color: '#1C1C1E',
+  },
+  customColon: {
+    fontSize: 22,
+    fontWeight: '700',
+    color: '#8E8E93',
+    marginTop: 14,
+  },
+  customStartBtn: {
+    backgroundColor: '#007AFF',
+    height: 44,
+    paddingHorizontal: 16,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 14,
+  },
+  customStartBtnText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '700',
   },
 });
