@@ -254,6 +254,19 @@ export default function StatsScreen() {
       actualReps: d.totalReps,
       label: d.date.slice(5),
       frontColor: isOverload ? colors.accent : colors.raised,
+      topLabelComponent: () => (
+        <Text
+          style={{
+            fontSize: 9,
+            fontFamily: 'IBMPlexMono_600SemiBold',
+            color: isOverload ? colors.accent : colors.textMuted,
+            marginBottom: 2,
+            textAlign: 'center',
+          }}
+        >
+          {d.totalReps}
+        </Text>
+      ),
     };
   });
 
@@ -688,7 +701,6 @@ export default function StatsScreen() {
                     <Text variant="label" color="primary">
                       SESSION REPS (PER DAY)
                     </Text>
-                    <Badge label="GREEN = OVERLOAD" variant="neutral" />
                   </View>
 
                   <BarChart
