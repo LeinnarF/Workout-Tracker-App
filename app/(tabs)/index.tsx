@@ -118,25 +118,43 @@ export default function LogScreen() {
     setSelectedExerciseId(ex.id);
 
     try {
-      const history = await getLastSessionSetsForExercise(db, ex.id, session?.id);
-      const sug = suggestNext(ex, history);
+      const latestEx = exercises.find((item) => item.id === ex.id) ?? ex;
+      const history = await getLastSessionSetsForExercise(db, latestEx.id, session?.id);
+      const currentExerciseSets = sets.filter((s) => s.exercise_id === latestEx.id);
 
       let baseWeight = 45;
-      if (history.length > 0) {
+      if (currentExerciseSets.length > 0 && currentExerciseSets.length < latestEx.target_sets) {
+        // Exercise in progress in current workout: use weight of last set logged
+        baseWeight = currentExerciseSets[currentExerciseSets.length - 1].weight_lb;
+      } else if (latestEx.default_weight_lb != null) {
+        // Use default weight (configured, accepted suggestion, or last completed session)
+        baseWeight = latestEx.default_weight_lb;
+      } else if (history.length > 0) {
+        // Fallback to previous session if no default weight is set
         baseWeight = history[history.length - 1].weight_lb;
-      } else if (ex.default_weight_lb != null) {
-        baseWeight = ex.default_weight_lb;
+      } else {
+        baseWeight = 45;
       }
 
       setCurrentWeight(baseWeight);
 
-      if (sug.shouldIncrease && baseWeight < sug.suggestedWeightLb) {
-        setSuggestion(sug);
-      } else {
-        setSuggestion(null);
+      // Check progressive overload suggestion
+      const currentWorkingSets = currentExerciseSets.filter((s) => s.is_warmup === 0);
+      let sug: ProgressionSuggestion | null = null;
+      if (currentWorkingSets.length >= latestEx.target_sets) {
+        const curSug = suggestNext(latestEx, currentWorkingSets);
+        if (curSug.shouldIncrease && baseWeight < curSug.suggestedWeightLb) {
+          sug = curSug;
+        }
+      } else if (currentWorkingSets.length === 0) {
+        const histSug = suggestNext(latestEx, history);
+        if (histSug.shouldIncrease && baseWeight < histSug.suggestedWeightLb) {
+          sug = histSug;
+        }
       }
 
-      setCurrentReps(Math.min(ex.rep_max, Math.max(1, ex.rep_min || 4)));
+      setSuggestion(sug);
+      setCurrentReps(Math.min(latestEx.rep_max, Math.max(1, latestEx.rep_min || 4)));
     } catch (e) {
       console.error('Error getting history for exercise:', e);
     }
@@ -197,6 +215,17 @@ export default function LogScreen() {
           item.id === ex.id ? { ...item, default_weight_lb: currentWeight } : item
         )
       );
+
+      // If all target sets are now completed, check if all hit rep_max and suggest weight increase
+      const exerciseWorkingSets = updatedSets.filter(
+        (s) => s.exercise_id === ex.id && s.is_warmup === 0
+      );
+      if (exerciseWorkingSets.length >= ex.target_sets) {
+        const curSug = suggestNext(ex, exerciseWorkingSets);
+        if (curSug.shouldIncrease && currentWeight < curSug.suggestedWeightLb) {
+          setSuggestion(curSug);
+        }
+      }
 
       setCurrentReps(Math.min(ex.rep_max, Math.max(1, ex.rep_min || 4)));
     } catch (e) {
@@ -576,7 +605,7 @@ const styles = StyleSheet.create({
     padding: 4,
   },
   listContainer: {
-    gap: 2,
+    gap: 5,
   },
   exerciseItem: {
     width: '100%',

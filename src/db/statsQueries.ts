@@ -377,16 +377,16 @@ export async function getAllExercisesOverloadStatus(
     const sug = suggestNext(ex, history);
     const workingSets = history.filter((s) => s.is_warmup === 0);
     const currentWeight =
-      workingSets.length > 0
-        ? workingSets[workingSets.length - 1].weight_lb
-        : ex.default_weight_lb != null
+      ex.default_weight_lb != null
         ? ex.default_weight_lb
+        : workingSets.length > 0
+        ? workingSets[workingSets.length - 1].weight_lb
         : 45;
 
     result.push({
       exerciseId: ex.id,
       exerciseName: ex.name,
-      isReadyForIncrease: sug.shouldIncrease,
+      isReadyForIncrease: sug.shouldIncrease && currentWeight < sug.suggestedWeightLb,
       suggestedWeightLb: sug.suggestedWeightLb,
       currentWeightLb: currentWeight,
       repMin: ex.rep_min,
