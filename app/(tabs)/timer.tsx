@@ -6,7 +6,6 @@ import {
   SafeAreaView,
   TouchableOpacity,
   ScrollView,
-  FlatList,
   NativeSyntheticEvent,
   NativeScrollEvent,
 } from 'react-native';
@@ -45,7 +44,7 @@ function OdometerWheel({
   onValueChange,
   unitLabel,
 }: OdometerWheelProps) {
-  const flatListRef = useRef<FlatList<number>>(null);
+  const scrollRef = useRef<ScrollView>(null);
   const isUserScrollingRef = useRef(false);
 
   const isFirstMount = useRef(true);
@@ -56,8 +55,8 @@ function OdometerWheel({
       isFirstMount.current = false;
       const initialIdx = items.indexOf(selectedValue);
       if (initialIdx !== -1) {
-        flatListRef.current?.scrollToOffset({
-          offset: initialIdx * ITEM_HEIGHT,
+        scrollRef.current?.scrollTo({
+          y: initialIdx * ITEM_HEIGHT,
           animated: false,
         });
       }
@@ -67,8 +66,8 @@ function OdometerWheel({
     if (!isUserScrollingRef.current) {
       const targetIndex = items.indexOf(selectedValue);
       if (targetIndex !== -1) {
-        flatListRef.current?.scrollToOffset({
-          offset: targetIndex * ITEM_HEIGHT,
+        scrollRef.current?.scrollTo({
+          y: targetIndex * ITEM_HEIGHT,
           animated: true,
         });
       }
@@ -100,34 +99,30 @@ function OdometerWheel({
       <Text style={styles.wheelHeaderLabel}>{unitLabel.toUpperCase()}</Text>
 
       <View style={styles.wheelWindow}>
-        <FlatList
-          ref={flatListRef}
-          data={items}
-          keyExtractor={(item) => item.toString()}
+        <ScrollView
+          ref={scrollRef}
           showsVerticalScrollIndicator={false}
           snapToInterval={ITEM_HEIGHT}
           snapToAlignment="center"
           decelerationRate="fast"
+          nestedScrollEnabled={true}
           onScrollBeginDrag={handleScrollBegin}
           onScrollEndDrag={handleScrollEnd}
           onMomentumScrollEnd={handleScrollEnd}
           contentContainerStyle={{
             paddingVertical: PADDING,
           }}
-          getItemLayout={(_, index) => ({
-            length: ITEM_HEIGHT,
-            offset: ITEM_HEIGHT * index,
-            index,
-          })}
-          renderItem={({ item, index }) => {
+        >
+          {items.map((item, index) => {
             const isSelected = item === selectedValue;
             return (
               <TouchableOpacity
+                key={item}
                 style={styles.wheelItem}
                 activeOpacity={0.7}
                 onPress={() => {
-                  flatListRef.current?.scrollToOffset({
-                    offset: index * ITEM_HEIGHT,
+                  scrollRef.current?.scrollTo({
+                    y: index * ITEM_HEIGHT,
                     animated: true,
                   });
                   if (item !== selectedValue) {
@@ -150,8 +145,8 @@ function OdometerWheel({
                 </Text>
               </TouchableOpacity>
             );
-          }}
-        />
+          })}
+        </ScrollView>
 
         {/* Top Fade Gradient Mask */}
         <View style={styles.fadeMaskTop} pointerEvents="none" />
