@@ -564,12 +564,12 @@ const styles = StyleSheet.create({
   customRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    gap: 14,
+    width: '100%',
+    gap: 12,
   },
   customInputGroup: {
+    flex: 1,
     alignItems: 'center',
-    width: 80,
   },
   customInputLabel: {
     fontSize: 11,
@@ -580,11 +580,11 @@ const styles = StyleSheet.create({
   },
   customInput: {
     width: '100%',
-    height: 44,
+    height: 46,
     backgroundColor: '#F2F2F7',
-    borderRadius: 10,
+    borderRadius: 12,
     textAlign: 'center',
-    fontSize: 20,
+    fontSize: 22,
     fontWeight: '700',
     color: '#1C1C1E',
     borderWidth: 1,
@@ -594,7 +594,7 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontWeight: '700',
     color: '#8E8E93',
-    marginTop: 14,
+    marginTop: 16,
   },
   presetsGrid: {
     flexDirection: 'row',
