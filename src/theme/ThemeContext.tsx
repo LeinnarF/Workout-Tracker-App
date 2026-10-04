@@ -2,20 +2,25 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useColorScheme } from 'react-native';
 import { File, Paths } from 'expo-file-system';
 import {
-  colors,
   ColorTokens,
   spacing,
   radius,
   border,
   typography,
   fonts,
+  AccentColor,
+  ACCENT_COLORS,
+  getThemeColors,
 } from './tokens';
 
 export type ThemeMode = 'system' | 'light' | 'dark';
+export type { AccentColor };
 
 interface ThemeContextType {
   themeMode: ThemeMode;
   setThemeMode: (mode: ThemeMode) => void;
+  accentColor: AccentColor;
+  setAccentColor: (accent: AccentColor) => void;
   colors: ColorTokens;
   isDark: boolean;
   spacing: typeof spacing;
@@ -28,27 +33,42 @@ interface ThemeContextType {
 const ThemeContext = createContext<ThemeContextType | null>(null);
 
 const THEME_FILE_NAME = 'theme_preference.txt';
+const ACCENT_FILE_NAME = 'accent_preference.txt';
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const systemColorScheme = useColorScheme();
   const [themeMode, setThemeModeState] = useState<ThemeMode>('system');
+  const [accentColor, setAccentColorState] = useState<AccentColor>('green');
 
   useEffect(() => {
-    const loadTheme = async () => {
+    const loadPreferences = async () => {
       try {
-        const file = new File(Paths.document, THEME_FILE_NAME);
-        if (file.exists) {
-          const saved = await file.text();
-          const trimmed = saved.trim();
-          if (trimmed === 'system' || trimmed === 'light' || trimmed === 'dark') {
-            setThemeModeState(trimmed);
+        const themeFile = new File(Paths.document, THEME_FILE_NAME);
+        if (themeFile.exists) {
+          const savedTheme = await themeFile.text();
+          const trimmedTheme = savedTheme.trim();
+          if (trimmedTheme === 'system' || trimmedTheme === 'light' || trimmedTheme === 'dark') {
+            setThemeModeState(trimmedTheme);
+          }
+        }
+      } catch {
+        // ignore
+      }
+
+      try {
+        const accentFile = new File(Paths.document, ACCENT_FILE_NAME);
+        if (accentFile.exists) {
+          const savedAccent = await accentFile.text();
+          const trimmedAccent = savedAccent.trim() as AccentColor;
+          if (ACCENT_COLORS.includes(trimmedAccent)) {
+            setAccentColorState(trimmedAccent);
           }
         }
       } catch {
         // ignore
       }
     };
-    loadTheme();
+    loadPreferences();
   }, []);
 
   const setThemeMode = async (mode: ThemeMode) => {
@@ -61,18 +81,30 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  const setAccentColor = async (accent: AccentColor) => {
+    setAccentColorState(accent);
+    try {
+      const file = new File(Paths.document, ACCENT_FILE_NAME);
+      await file.write(accent);
+    } catch {
+      // ignore
+    }
+  };
+
   const isDark =
     themeMode === 'system'
       ? systemColorScheme === 'dark'
       : themeMode === 'dark';
 
-  const currentColors: ColorTokens = isDark ? colors.dark : colors.light;
+  const currentColors: ColorTokens = getThemeColors(isDark, accentColor);
 
   return (
     <ThemeContext.Provider
       value={{
         themeMode,
         setThemeMode,
+        accentColor,
+        setAccentColor,
         colors: currentColors,
         isDark,
         spacing,

@@ -16,11 +16,12 @@ import { Session, Exercise, SetRecord } from '../../src/db/types';
 import { ensurePresetExercises } from '../../src/db/queries';
 import { seedDemoData } from '../../src/db/seedDemoData';
 import { useTheme } from '../../src/theme/useTheme';
+import { ACCENT_COLORS, accentPalettes } from '../../src/theme/tokens';
 import { Screen, Text, Rule } from '../../src/components/ui';
 
 export default function SettingsScreen() {
   const db = useSQLiteContext();
-  const { colors, themeMode, setThemeMode } = useTheme();
+  const { colors, isDark, themeMode, setThemeMode, accentColor, setAccentColor } = useTheme();
 
   const [lastBackup, setLastBackup] = useState<string | null>(null);
   const [isExporting, setIsExporting] = useState(false);
@@ -325,6 +326,50 @@ export default function SettingsScreen() {
             );
           })}
         </View>
+
+        <Rule style={{ marginVertical: 14 }} />
+
+        <Text variant="label" color="primary" style={styles.cardHeading}>
+          ACCENT COLOR
+        </Text>
+        <Text variant="body" color="muted" style={styles.cardDescription}>
+          Select primary highlight and chart accent color.
+        </Text>
+
+        <View style={styles.accentGrid}>
+          {ACCENT_COLORS.map((accent) => {
+            const isSelected = accentColor === accent;
+            const swatch = isDark
+              ? accentPalettes[accent].dark.accent
+              : accentPalettes[accent].light.accent;
+
+            return (
+              <Pressable
+                key={accent}
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  setAccentColor(accent);
+                }}
+                style={[
+                  styles.accentButton,
+                  {
+                    backgroundColor: isSelected ? colors.raised : colors.surface,
+                    borderColor: isSelected ? colors.accent : colors.outline,
+                  },
+                ]}
+              >
+                <View style={[styles.swatchBox, { backgroundColor: swatch }]} />
+                <Text
+                  variant="micro"
+                  color={isSelected ? 'accent' : 'muted'}
+                  style={styles.accentButtonText}
+                >
+                  {accent.toUpperCase()}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </View>
       </View>
       {/* Data & Backup Spec Box */}
       <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.outline }]}>
@@ -562,5 +607,31 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  accentGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginTop: 12,
+  },
+  accentButton: {
+    flexBasis: '22%',
+    flexGrow: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 10,
+    borderWidth: 1,
+    borderRadius: 2,
+    gap: 6,
+  },
+  swatchBox: {
+    width: 14,
+    height: 14,
+    borderRadius: 2,
+  },
+  accentButtonText: {
+    fontSize: 9,
+    fontFamily: 'IBMPlexMono_600SemiBold',
+    letterSpacing: 0.5,
   },
 });
