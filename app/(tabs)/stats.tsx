@@ -230,20 +230,27 @@ export default function StatsScreen() {
 
   const chartWidth = Math.max(260, windowWidth - 64);
 
+  const isPureBodyweight = chartData.length > 0 && chartData.every((d) => d.bestWeight === 0);
+
   // Map daily chart data for LineChart
-  const e1rmLinePoints = chartData.map((d) => ({
-    value: d.bestE1rm,
+  // If pure bodyweight (all sessions at 0 lbs), line 1 is Top Set Reps and line 2 is Avg Set Reps
+  const linePoints1 = chartData.map((d) => ({
+    value: isPureBodyweight
+      ? Math.max(...(d.setReps && d.setReps.length > 0 ? d.setReps : [0]))
+      : d.bestE1rm,
     label: d.date.slice(5),
   }));
 
-  const weightLinePoints = chartData.map((d) => ({
-    value: d.bestWeight,
+  const linePoints2 = chartData.map((d) => ({
+    value: isPureBodyweight
+      ? Math.round((d.totalReps / Math.max(1, d.setReps?.length || 1)) * 10) / 10
+      : d.bestWeight,
     label: d.date.slice(5),
   }));
 
   const maxLinePointValue = Math.max(
-    ...e1rmLinePoints.map((p) => p.value),
-    ...weightLinePoints.map((p) => p.value),
+    ...linePoints1.map((p) => p.value),
+    ...linePoints2.map((p) => p.value),
     0
   );
 
@@ -646,30 +653,36 @@ export default function StatsScreen() {
             </View>
           ) : (
             <>
-              {/* E1RM and Weight Progress Line Chart */}
+              {/* E1RM and Weight Progress Line Chart OR Bodyweight Rep Progression */}
               <View style={[styles.chartCard, { borderColor: colors.outline, backgroundColor: colors.surface }]}>
                 <View style={styles.chartTitleRow}>
                   <Text variant="label" color="primary">
-                    EST. 1RM & TOP WEIGHT (LB)
+                    {isPureBodyweight ? 'MAX REPS & AVG REPS / SET' : 'EST. 1RM & TOP WEIGHT (LB)'}
                   </Text>
                   <View style={styles.legendRow}>
                     <View style={[styles.legendBox, { backgroundColor: colors.accent }]} />
                     <Text variant="micro" color="muted">
-                      1RM
+                      {isPureBodyweight ? 'MAX' : '1RM'}
                     </Text>
                     <View style={[styles.legendBox, { backgroundColor: colors.textMuted }]} />
                     <Text variant="micro" color="muted">
-                      TOP
+                      {isPureBodyweight ? 'AVG' : 'TOP'}
                     </Text>
                   </View>
                 </View>
 
                 <LineChart
-                  data={e1rmLinePoints}
-                  data2={weightLinePoints}
+                  data={linePoints1}
+                  data2={linePoints2}
                   width={chartWidth}
                   height={180}
-                  maxValue={maxLinePointValue > 0 ? undefined : 20}
+                  maxValue={
+                    isPureBodyweight
+                      ? Math.max(maxLinePointValue + 2, repMax, 10)
+                      : maxLinePointValue > 0
+                      ? undefined
+                      : 20
+                  }
                   noOfSections={4}
                   color={colors.accent}
                   color2={colors.textMuted}
