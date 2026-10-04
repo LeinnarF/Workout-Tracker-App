@@ -9,6 +9,10 @@ import {
   TextInput,
   KeyboardAvoidingView,
   Platform,
+  Keyboard,
+  TouchableWithoutFeedback,
+  useWindowDimensions,
+  LayoutChangeEvent,
 } from 'react-native';
 import Svg, { Circle } from 'react-native-svg';
 import * as Haptics from 'expo-haptics';
@@ -34,9 +38,26 @@ export default function TimerScreen() {
     resetTimer,
   } = useTimer();
 
+  const { width: windowWidth } = useWindowDimensions();
+
+  // Dynamic dial size that expands to fill remaining space
+  const [dialSize, setDialSize] = useState(() => {
+    return Math.min(Math.max(220, windowWidth - 64), 320);
+  });
+
   const [selectedDurationMs, setSelectedDurationMs] = useState(90 * 1000); // 1:30 default
-  const [customMin, setCustomMin] = useState('');
-  const [customSec, setCustomSec] = useState('');
+  const [customMin, setCustomMin] = useState('1');
+  const [customSec, setCustomSec] = useState('30');
+
+  const onDialLayout = (event: LayoutChangeEvent) => {
+    const { width, height } = event.nativeEvent.layout;
+    if (width > 0 && height > 0) {
+      // Allow padding so the circle has breathing room within the remaining area
+      const available = Math.min(width - 24, height - 24);
+      const calculated = Math.max(200, Math.min(360, Math.floor(available)));
+      setDialSize((prev) => (Math.abs(prev - calculated) > 4 ? calculated : prev));
+    }
+  };
 
   const formatTime = (ms: number) => {
     const totalSec = Math.floor(ms / 1000);
@@ -45,40 +66,63 @@ export default function TimerScreen() {
     return `${m}:${s.toString().padStart(2, '0')}`;
   };
 
-  const handleStartCustom = () => {
-    const m = parseInt(customMin, 10) || 0;
-    const s = parseInt(customSec, 10) || 0;
-    const totalMs = (m * 60 + s) * 1000;
-    if (totalMs > 0) {
-      try {
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-      } catch {
-        // ignore
-      }
-      setSelectedDurationMs(totalMs);
-      startTimer(totalMs);
-      setCustomMin('');
-      setCustomSec('');
-    }
-  };
+  const isTimerActive = isRunning || timeRemainingMs > 0;
 
+  // Preset click ONLY sets the timer; does not start it
   const handleSelectPreset = (ms: number) => {
     try {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     } catch {
       // ignore
     }
+    Keyboard.dismiss();
+    if (isTimerActive) {
+      resetTimer();
+    }
     setSelectedDurationMs(ms);
-    startTimer(ms);
+
+    const totalSec = Math.floor(ms / 1000);
+    const m = Math.floor(totalSec / 60);
+    const s = totalSec % 60;
+    setCustomMin(m.toString());
+    setCustomSec(s.toString().padStart(2, '0'));
+  };
+
+  // Custom MIN change automatically reflects to main timer circle
+  const handleCustomMinChange = (text: string) => {
+    const clean = text.replace(/[^0-9]/g, '').slice(0, 2);
+    setCustomMin(clean);
+
+    const m = parseInt(clean, 10) || 0;
+    const s = parseInt(customSec, 10) || 0;
+    const totalMs = (m * 60 + s) * 1000;
+
+    if (isTimerActive) {
+      resetTimer();
+    }
+    setSelectedDurationMs(totalMs);
+  };
+
+  // Custom SEC change automatically reflects to main timer circle
+  const handleCustomSecChange = (text: string) => {
+    const clean = text.replace(/[^0-9]/g, '').slice(0, 2);
+    setCustomSec(clean);
+
+    const m = parseInt(customMin, 10) || 0;
+    const s = parseInt(clean, 10) || 0;
+    const totalMs = (m * 60 + s) * 1000;
+
+    if (isTimerActive) {
+      resetTimer();
+    }
+    setSelectedDurationMs(totalMs);
   };
 
   // Dial calculations
-  const size = 230;
-  const strokeWidth = 8;
-  const radius = (size - strokeWidth) / 2;
+  const strokeWidth = Math.round(dialSize * 0.04);
+  const radius = (dialSize - strokeWidth) / 2;
   const circumference = 2 * Math.PI * radius;
 
-  const isTimerActive = isRunning || timeRemainingMs > 0;
   const progress =
     initialDurationMs > 0
       ? Math.min(1, Math.max(0, timeRemainingMs / initialDurationMs))
@@ -94,242 +138,266 @@ export default function TimerScreen() {
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
         <ScrollView
-          contentContainerStyle={styles.container}
+          contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
+          bounces={false}
         >
-          {/* Circular Progress Dial */}
-          <View style={styles.dialContainer}>
-            <View style={styles.dialWrapper}>
-              <Svg width={size} height={size} style={styles.svgRing}>
-                {/* Background Track */}
-                <Circle
-                  cx={size / 2}
-                  cy={size / 2}
-                  r={radius}
-                  stroke="#E9EBF0"
-                  strokeWidth={strokeWidth}
-                  fill="transparent"
-                />
-                {/* Progress Arc */}
-                <Circle
-                  cx={size / 2}
-                  cy={size / 2}
-                  r={radius}
-                  stroke={
-                    isRunning
-                      ? '#007AFF'
-                      : isTimerActive
-                      ? '#FF9500'
-                      : '#007AFF'
-                  }
-                  strokeWidth={strokeWidth}
-                  strokeDasharray={circumference}
-                  strokeDashoffset={isTimerActive ? strokeDashoffset : 0}
-                  strokeLinecap="round"
-                  fill="transparent"
-                  rotation="-90"
-                  origin={`${size / 2}, ${size / 2}`}
-                />
-              </Svg>
+          {/* Dial Section: Takes all remaining space on screen */}
+          <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
+            <View style={styles.dialSection} onLayout={onDialLayout}>
+              <View
+                style={[
+                  styles.dialWrapper,
+                  { width: dialSize, height: dialSize },
+                ]}
+              >
+                <Svg width={dialSize} height={dialSize} style={styles.svgRing}>
+                  {/* Background Track */}
+                  <Circle
+                    cx={dialSize / 2}
+                    cy={dialSize / 2}
+                    r={radius}
+                    stroke="#E9EBF0"
+                    strokeWidth={strokeWidth}
+                    fill="transparent"
+                  />
+                  {/* Progress Arc */}
+                  <Circle
+                    cx={dialSize / 2}
+                    cy={dialSize / 2}
+                    r={radius}
+                    stroke={
+                      isRunning
+                        ? '#007AFF'
+                        : isTimerActive
+                        ? '#FF9500'
+                        : '#007AFF'
+                    }
+                    strokeWidth={strokeWidth}
+                    strokeDasharray={circumference}
+                    strokeDashoffset={isTimerActive ? strokeDashoffset : 0}
+                    strokeLinecap="round"
+                    fill="transparent"
+                    rotation="-90"
+                    origin={`${dialSize / 2}, ${dialSize / 2}`}
+                  />
+                </Svg>
 
-              {/* Inside dial text */}
-              <View style={styles.dialContent}>
-                <View
-                  style={[
-                    styles.statusBadge,
-                    isRunning
-                      ? styles.statusBadgeRunning
-                      : isTimerActive
-                      ? styles.statusBadgePaused
-                      : styles.statusBadgeReady,
-                  ]}
-                >
+                {/* Inside dial text */}
+                <View style={styles.dialContent}>
                   <View
                     style={[
-                      styles.statusDot,
+                      styles.statusBadge,
                       isRunning
-                        ? styles.statusDotRunning
+                        ? styles.statusBadgeRunning
                         : isTimerActive
-                        ? styles.statusDotPaused
-                        : styles.statusDotReady,
-                    ]}
-                  />
-                  <Text
-                    style={[
-                      styles.statusText,
-                      isRunning
-                        ? styles.statusTextRunning
-                        : isTimerActive
-                        ? styles.statusTextPaused
-                        : styles.statusTextReady,
+                        ? styles.statusBadgePaused
+                        : styles.statusBadgeReady,
                     ]}
                   >
-                    {isRunning ? 'RESTING' : isTimerActive ? 'PAUSED' : 'READY'}
-                  </Text>
-                </View>
-
-                <Text style={styles.timeDisplay}>{formatTime(displayMs)}</Text>
-              </View>
-            </View>
-          </View>
-
-          {/* Controls Row: Square (Stop/Reset) and Triangle/Pause (Play/Pause) */}
-          <View style={styles.controlsRow}>
-            {/* Square Button: Stop / Reset */}
-            <TouchableOpacity
-              style={[
-                styles.controlBtnSquare,
-                !isTimerActive && styles.controlBtnDisabled,
-              ]}
-              onPress={() => {
-                if (isTimerActive) {
-                  try {
-                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                  } catch {
-                    // ignore
-                  }
-                  resetTimer();
-                }
-              }}
-              disabled={!isTimerActive}
-              activeOpacity={0.7}
-            >
-              <FontAwesome
-                name="stop"
-                size={18}
-                color={isTimerActive ? '#FF3B30' : '#C7C7CC'}
-              />
-            </TouchableOpacity>
-
-            {/* Triangle / Pause Button: Play / Pause / Resume */}
-            {isRunning ? (
-              <TouchableOpacity
-                style={[styles.primaryActionBtn, styles.pauseActionBtn]}
-                onPress={() => {
-                  try {
-                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                  } catch {
-                    // ignore
-                  }
-                  pauseTimer(timeRemainingMs);
-                }}
-                activeOpacity={0.8}
-              >
-                <FontAwesome name="pause" size={24} color="#fff" />
-              </TouchableOpacity>
-            ) : isTimerActive ? (
-              <TouchableOpacity
-                style={[styles.primaryActionBtn, styles.resumeActionBtn]}
-                onPress={() => {
-                  try {
-                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                  } catch {
-                    // ignore
-                  }
-                  startTimer(timeRemainingMs);
-                }}
-                activeOpacity={0.8}
-              >
-                <FontAwesome
-                  name="play"
-                  size={24}
-                  color="#fff"
-                  style={{ marginLeft: 3 }}
-                />
-              </TouchableOpacity>
-            ) : (
-              <TouchableOpacity
-                style={[styles.primaryActionBtn, styles.startActionBtn]}
-                onPress={() => {
-                  try {
-                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                  } catch {
-                    // ignore
-                  }
-                  startTimer(selectedDurationMs);
-                }}
-                activeOpacity={0.8}
-              >
-                <FontAwesome
-                  name="play"
-                  size={26}
-                  color="#fff"
-                  style={{ marginLeft: 4 }}
-                />
-              </TouchableOpacity>
-            )}
-          </View>
-
-          {/* Quick Presets Card (Title Removed) */}
-          <View style={styles.card}>
-            <View style={styles.presetsGrid}>
-              {PRESETS.map((p) => {
-                const isSelected =
-                  (isTimerActive && initialDurationMs === p.ms) ||
-                  (!isTimerActive && selectedDurationMs === p.ms);
-                return (
-                  <TouchableOpacity
-                    key={p.label}
-                    style={[
-                      styles.presetBtn,
-                      isSelected && styles.presetBtnActive,
-                    ]}
-                    onPress={() => handleSelectPreset(p.ms)}
-                    activeOpacity={0.7}
-                  >
+                    <View
+                      style={[
+                        styles.statusDot,
+                        isRunning
+                          ? styles.statusDotRunning
+                          : isTimerActive
+                          ? styles.statusDotPaused
+                          : styles.statusDotReady,
+                      ]}
+                    />
                     <Text
                       style={[
-                        styles.presetBtnText,
-                        isSelected && styles.presetBtnTextActive,
+                        styles.statusText,
+                        isRunning
+                          ? styles.statusTextRunning
+                          : isTimerActive
+                          ? styles.statusTextPaused
+                          : styles.statusTextReady,
                       ]}
                     >
-                      {p.label}
+                      {isRunning ? 'RESTING' : isTimerActive ? 'PAUSED' : 'READY'}
                     </Text>
-                  </TouchableOpacity>
-                );
-              })}
+                  </View>
+
+                  <Text
+                    style={[
+                      styles.timeDisplay,
+                      { fontSize: Math.max(46, Math.round(dialSize * 0.22)) },
+                    ]}
+                  >
+                    {formatTime(displayMs)}
+                  </Text>
+                </View>
+              </View>
             </View>
-          </View>
+          </TouchableWithoutFeedback>
 
-          {/* Custom Duration Card (Title Removed) */}
-          <View style={styles.card}>
-            <View style={styles.customRow}>
-              <View style={styles.customInputGroup}>
-                <Text style={styles.customInputLabel}>MIN</Text>
-                <TextInput
-                  style={styles.customInput}
-                  keyboardType="number-pad"
-                  placeholder="0"
-                  placeholderTextColor="#C7C7CC"
-                  value={customMin}
-                  onChangeText={setCustomMin}
-                  maxLength={2}
-                />
-              </View>
-
-              <Text style={styles.customColon}>:</Text>
-
-              <View style={styles.customInputGroup}>
-                <Text style={styles.customInputLabel}>SEC</Text>
-                <TextInput
-                  style={styles.customInput}
-                  keyboardType="number-pad"
-                  placeholder="00"
-                  placeholderTextColor="#C7C7CC"
-                  value={customSec}
-                  onChangeText={setCustomSec}
-                  maxLength={2}
-                />
-              </View>
-
+          {/* Bottom Controls and Settings Section */}
+          <View style={styles.bottomSection}>
+            {/* Controls Row: Square (Stop/Reset) and Triangle/Pause (Play/Pause) */}
+            <View style={styles.controlsRow}>
+              {/* Square Button: Stop / Reset */}
               <TouchableOpacity
-                style={styles.customStartBtn}
-                onPress={handleStartCustom}
+                style={[
+                  styles.controlBtnSquare,
+                  !isTimerActive && styles.controlBtnDisabled,
+                ]}
+                onPress={() => {
+                  if (isTimerActive) {
+                    Keyboard.dismiss();
+                    try {
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                    } catch {
+                      // ignore
+                    }
+                    resetTimer();
+                  }
+                }}
+                disabled={!isTimerActive}
                 activeOpacity={0.7}
               >
-                <Text style={styles.customStartBtnText}>Set Timer</Text>
+                <FontAwesome
+                  name="stop"
+                  size={18}
+                  color={isTimerActive ? '#FF3B30' : '#C7C7CC'}
+                />
               </TouchableOpacity>
+
+              {/* Triangle / Pause Button: Play / Pause / Resume */}
+              {isRunning ? (
+                <TouchableOpacity
+                  style={[styles.primaryActionBtn, styles.pauseActionBtn]}
+                  onPress={() => {
+                    Keyboard.dismiss();
+                    try {
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                    } catch {
+                      // ignore
+                    }
+                    pauseTimer(timeRemainingMs);
+                  }}
+                  activeOpacity={0.8}
+                >
+                  <FontAwesome name="pause" size={24} color="#fff" />
+                </TouchableOpacity>
+              ) : isTimerActive ? (
+                <TouchableOpacity
+                  style={[styles.primaryActionBtn, styles.resumeActionBtn]}
+                  onPress={() => {
+                    Keyboard.dismiss();
+                    try {
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                    } catch {
+                      // ignore
+                    }
+                    startTimer(timeRemainingMs);
+                  }}
+                  activeOpacity={0.8}
+                >
+                  <FontAwesome
+                    name="play"
+                    size={24}
+                    color="#fff"
+                    style={{ marginLeft: 3 }}
+                  />
+                </TouchableOpacity>
+              ) : (
+                <TouchableOpacity
+                  style={[
+                    styles.primaryActionBtn,
+                    styles.startActionBtn,
+                    selectedDurationMs <= 0 && styles.controlBtnDisabled,
+                  ]}
+                  onPress={() => {
+                    if (selectedDurationMs <= 0) return;
+                    Keyboard.dismiss();
+                    try {
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                    } catch {
+                      // ignore
+                    }
+                    startTimer(selectedDurationMs);
+                  }}
+                  disabled={selectedDurationMs <= 0}
+                  activeOpacity={0.8}
+                >
+                  <FontAwesome
+                    name="play"
+                    size={26}
+                    color="#fff"
+                    style={{ marginLeft: 4 }}
+                  />
+                </TouchableOpacity>
+              )}
+            </View>
+
+            {/* Custom Duration Card (Above Preset, automatically reflects to Circle) */}
+            <View style={styles.card}>
+              <View style={styles.customRow}>
+                <View style={styles.customInputGroup}>
+                  <Text style={styles.customInputLabel}>MIN</Text>
+                  <TextInput
+                    style={styles.customInput}
+                    keyboardType="number-pad"
+                    placeholder="0"
+                    placeholderTextColor="#C7C7CC"
+                    value={customMin}
+                    onChangeText={handleCustomMinChange}
+                    maxLength={2}
+                    returnKeyType="done"
+                    onSubmitEditing={Keyboard.dismiss}
+                  />
+                </View>
+
+                <Text style={styles.customColon}>:</Text>
+
+                <View style={styles.customInputGroup}>
+                  <Text style={styles.customInputLabel}>SEC</Text>
+                  <TextInput
+                    style={styles.customInput}
+                    keyboardType="number-pad"
+                    placeholder="00"
+                    placeholderTextColor="#C7C7CC"
+                    value={customSec}
+                    onChangeText={handleCustomSecChange}
+                    maxLength={2}
+                    returnKeyType="done"
+                    onSubmitEditing={Keyboard.dismiss}
+                  />
+                </View>
+              </View>
+            </View>
+
+            {/* Quick Presets Card */}
+            <View style={styles.card}>
+              <View style={styles.presetsGrid}>
+                {PRESETS.map((p) => {
+                  const isSelected =
+                    (isTimerActive && initialDurationMs === p.ms) ||
+                    (!isTimerActive && selectedDurationMs === p.ms);
+                  return (
+                    <TouchableOpacity
+                      key={p.label}
+                      style={[
+                        styles.presetBtn,
+                        isSelected && styles.presetBtnActive,
+                      ]}
+                      onPress={() => handleSelectPreset(p.ms)}
+                      activeOpacity={0.7}
+                    >
+                      <Text
+                        style={[
+                          styles.presetBtnText,
+                          isSelected && styles.presetBtnTextActive,
+                        ]}
+                      >
+                        {p.label}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
             </View>
           </View>
         </ScrollView>
@@ -343,20 +411,21 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#F8F9FA',
   },
-  container: {
-    padding: 20,
-    alignItems: 'center',
-    paddingBottom: 40,
+  scrollContent: {
+    flexGrow: 1,
+    paddingHorizontal: 20,
+    paddingTop: 10,
+    paddingBottom: 24,
+    justifyContent: 'space-between',
   },
-  dialContainer: {
-    marginTop: 10,
-    marginBottom: 20,
+  dialSection: {
+    flex: 1,
+    minHeight: 220,
     alignItems: 'center',
     justifyContent: 'center',
+    paddingVertical: 12,
   },
   dialWrapper: {
-    width: 230,
-    height: 230,
     alignItems: 'center',
     justifyContent: 'center',
     position: 'relative',
@@ -373,7 +442,7 @@ const styles = StyleSheet.create({
   statusBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 10,
+    paddingHorizontal: 12,
     paddingVertical: 4,
     borderRadius: 12,
     marginBottom: 6,
@@ -417,18 +486,20 @@ const styles = StyleSheet.create({
     color: '#8E8E93',
   },
   timeDisplay: {
-    fontSize: 56,
     fontWeight: '800',
     fontVariant: ['tabular-nums'],
     color: '#1C1C1E',
     letterSpacing: -1,
+  },
+  bottomSection: {
+    width: '100%',
   },
   controlsRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 24,
-    marginBottom: 24,
+    marginBottom: 16,
     width: '100%',
   },
   controlBtnSquare: {
@@ -481,14 +552,49 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     borderWidth: 1,
     borderColor: '#E5E5EA',
-    padding: 16,
+    padding: 14,
     width: '100%',
-    marginBottom: 14,
+    marginBottom: 12,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.03,
     shadowRadius: 2,
     elevation: 1,
+  },
+  customRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 14,
+  },
+  customInputGroup: {
+    alignItems: 'center',
+    width: 80,
+  },
+  customInputLabel: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#8E8E93',
+    marginBottom: 4,
+    letterSpacing: 0.5,
+  },
+  customInput: {
+    width: '100%',
+    height: 44,
+    backgroundColor: '#F2F2F7',
+    borderRadius: 10,
+    textAlign: 'center',
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#1C1C1E',
+    borderWidth: 1,
+    borderColor: '#E5E5EA',
+  },
+  customColon: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: '#8E8E93',
+    marginTop: 14,
   },
   presetsGrid: {
     flexDirection: 'row',
@@ -517,53 +623,6 @@ const styles = StyleSheet.create({
   },
   presetBtnTextActive: {
     color: '#fff',
-    fontWeight: '700',
-  },
-  customRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 10,
-  },
-  customInputGroup: {
-    flex: 1,
-    alignItems: 'center',
-  },
-  customInputLabel: {
-    fontSize: 10,
-    fontWeight: '700',
-    color: '#8E8E93',
-    marginBottom: 4,
-    letterSpacing: 0.5,
-  },
-  customInput: {
-    width: '100%',
-    height: 44,
-    backgroundColor: '#F2F2F7',
-    borderRadius: 10,
-    textAlign: 'center',
-    fontSize: 17,
-    fontWeight: '700',
-    color: '#1C1C1E',
-  },
-  customColon: {
-    fontSize: 22,
-    fontWeight: '700',
-    color: '#8E8E93',
-    marginTop: 14,
-  },
-  customStartBtn: {
-    backgroundColor: '#007AFF',
-    height: 44,
-    paddingHorizontal: 16,
-    borderRadius: 10,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: 14,
-  },
-  customStartBtnText: {
-    color: '#fff',
-    fontSize: 14,
     fontWeight: '700',
   },
 });
