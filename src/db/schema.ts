@@ -7,7 +7,7 @@ export async function migrateDbIfNeeded(db: SQLiteDatabase) {
       PRAGMA foreign_keys = ON;
     `);
 
-    const DATABASE_VERSION = 3;
+    const DATABASE_VERSION = 4;
     let { user_version: currentDbVersion } = await db.getFirstAsync<{ user_version: number }>(
       'PRAGMA user_version'
     ) ?? { user_version: 0 };
@@ -79,6 +79,14 @@ INSERT INTO exercises (name, created_at) VALUES
         // Column might already exist
       }
       currentDbVersion = 3;
+    }
+    if (currentDbVersion === 3) {
+      try {
+        await db.execAsync(`ALTER TABLE exercises ADD COLUMN tags TEXT;`);
+      } catch {
+        // Column might already exist
+      }
+      currentDbVersion = 4;
     }
     await db.execAsync(`PRAGMA user_version = ${DATABASE_VERSION}`);
   } catch (error) {

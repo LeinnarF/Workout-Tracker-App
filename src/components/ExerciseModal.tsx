@@ -8,9 +8,10 @@ import {
   ScrollView,
   Alert,
   Pressable,
+  TextInput,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { X } from 'lucide-react-native';
+import { X, Plus } from 'lucide-react-native';
 import { Exercise } from '../db/types';
 import { useTheme } from '../theme/useTheme';
 import { Text, Button, Field, Stepper, Rule } from './ui';
@@ -26,6 +27,7 @@ interface Props {
     targetSets: number;
     incrementLb: number;
     defaultWeightLb?: number;
+    tags?: string[];
   }) => Promise<void>;
 }
 
@@ -37,6 +39,8 @@ export function ExerciseModal({ visible, exercise, onClose, onSave }: Props) {
   const [repMax, setRepMax] = useState(10);
   const [incrementLb, setIncrementLb] = useState(5);
   const [defaultWeightLb, setDefaultWeightLb] = useState(45);
+  const [tags, setTags] = useState<string[]>([]);
+  const [tagInput, setTagInput] = useState('');
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -48,6 +52,13 @@ export function ExerciseModal({ visible, exercise, onClose, onSave }: Props) {
       setRepMax(exercise.rep_max || 10);
       setIncrementLb(exercise.increment_lb || 5);
       setDefaultWeightLb(exercise.default_weight_lb != null ? exercise.default_weight_lb : 45);
+      const existingTags = exercise.tags
+        ? Array.isArray(exercise.tags)
+          ? exercise.tags
+          : JSON.parse(exercise.tags as any)
+        : [];
+      setTags(existingTags.slice(0, 3));
+      setTagInput('');
     } else {
       setName('');
       setTargetSets(3);
@@ -55,8 +66,29 @@ export function ExerciseModal({ visible, exercise, onClose, onSave }: Props) {
       setRepMax(10);
       setIncrementLb(5);
       setDefaultWeightLb(45);
+      setTags([]);
+      setTagInput('');
     }
   }, [exercise, visible]);
+
+  const handleAddTag = () => {
+    const trimmed = tagInput.trim();
+    if (!trimmed) return;
+    if (tags.length >= 3) {
+      Alert.alert('Tag Limit', 'You can add up to 3 tags per exercise.');
+      return;
+    }
+    if (tags.some((t) => t.toLowerCase() === trimmed.toLowerCase())) {
+      setTagInput('');
+      return;
+    }
+    setTags((prev) => [...prev, trimmed]);
+    setTagInput('');
+  };
+
+  const handleRemoveTag = (index: number) => {
+    setTags((prev) => prev.filter((_, i) => i !== index));
+  };
 
   const handleSave = async () => {
     const trimmed = name.trim();
@@ -73,6 +105,16 @@ export function ExerciseModal({ visible, exercise, onClose, onSave }: Props) {
       return;
     }
 
+    let finalTags = [...tags];
+    const pendingTag = tagInput.trim();
+    if (
+      pendingTag &&
+      finalTags.length < 3 &&
+      !finalTags.some((t) => t.toLowerCase() === pendingTag.toLowerCase())
+    ) {
+      finalTags.push(pendingTag);
+    }
+
     try {
       setSaving(true);
       await onSave({
@@ -82,6 +124,7 @@ export function ExerciseModal({ visible, exercise, onClose, onSave }: Props) {
         targetSets,
         incrementLb,
         defaultWeightLb,
+        tags: finalTags,
       });
       onClose();
     } catch {
@@ -131,6 +174,83 @@ export function ExerciseModal({ visible, exercise, onClose, onSave }: Props) {
                 autoFocus={!exercise}
                 returnKeyType="done"
               />
+
+              <Rule style={styles.ruleSpacing} />
+
+              {/* Tags Section (Up to 3 user-defined tags) */}
+              <View style={styles.tagSection}>
+                <View style={styles.tagHeaderRow}>
+                  <Text variant="label" color="muted">
+                    TAGS ({tags.length}/3)
+                  </Text>
+                </View>
+
+                {tags.length > 0 && (
+                  <View style={styles.tagChipsRow}>
+                    {tags.map((t, idx) => (
+                      <View
+                        key={idx}
+                        style={[
+                          styles.tagChip,
+                          { backgroundColor: colors.raised, borderColor: colors.outline },
+                        ]}
+                      >
+                        <Text variant="micro" color="primary" style={styles.tagChipText}>
+                          {t.toUpperCase()}
+                        </Text>
+                        <Pressable
+                          onPress={() => handleRemoveTag(idx)}
+                          hitSlop={8}
+                          style={styles.tagRemoveBtn}
+                        >
+                          <X size={12} color={colors.textMuted} strokeWidth={2} />
+                        </Pressable>
+                      </View>
+                    ))}
+                  </View>
+                )}
+
+                {tags.length < 3 && (
+                  <View style={styles.addTagRow}>
+                    <TextInput
+                      style={[
+                        styles.tagInput,
+                        {
+                          color: colors.text,
+                          backgroundColor: colors.surface,
+                          borderColor: colors.outline,
+                        },
+                      ]}
+                      placeholder="Add tag (e.g. CHEST, COMPOUND)..."
+                      placeholderTextColor={colors.textMuted}
+                      value={tagInput}
+                      onChangeText={setTagInput}
+                      onSubmitEditing={handleAddTag}
+                      returnKeyType="done"
+                      maxLength={16}
+                      autoCapitalize="characters"
+                    />
+                    <Pressable
+                      onPress={handleAddTag}
+                      disabled={!tagInput.trim()}
+                      style={[
+                        styles.addTagBtn,
+                        {
+                          backgroundColor: tagInput.trim() ? colors.accent : colors.raised,
+                          borderColor: colors.outline,
+                        },
+                      ]}
+                      hitSlop={8}
+                    >
+                      <Plus
+                        size={16}
+                        color={tagInput.trim() ? colors.onAccent : colors.textMuted}
+                        strokeWidth={2}
+                      />
+                    </Pressable>
+                  </View>
+                )}
+              </View>
 
               <Rule style={styles.ruleSpacing} />
 
@@ -262,6 +382,59 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     gap: 8,
+  },
+  tagSection: {
+    gap: 8,
+  },
+  tagHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  tagChipsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+  },
+  tagChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    borderWidth: 1,
+    borderRadius: 2,
+    gap: 6,
+  },
+  tagChipText: {
+    fontSize: 10,
+    fontFamily: 'IBMPlexMono_600SemiBold',
+    letterSpacing: 0.5,
+  },
+  tagRemoveBtn: {
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  addTagRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  tagInput: {
+    flex: 1,
+    height: 38,
+    borderWidth: 1,
+    borderRadius: 2,
+    paddingHorizontal: 10,
+    fontSize: 12,
+    fontFamily: 'IBMPlexMono_400Regular',
+  },
+  addTagBtn: {
+    width: 38,
+    height: 38,
+    borderWidth: 1,
+    borderRadius: 2,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   footer: {
     borderTopWidth: 1,

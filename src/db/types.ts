@@ -6,6 +6,7 @@ export interface Exercise {
   target_sets: number;
   increment_lb: number;
   default_weight_lb?: number | null;
+  tags?: string[];
   archived: number;
   created_at: string;
 }

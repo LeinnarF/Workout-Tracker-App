@@ -24,7 +24,11 @@ export async function finishSession(db: SQLiteDatabase, sessionId: number): Prom
 }
 
 export async function getExercises(db: SQLiteDatabase): Promise<Exercise[]> {
-  return await db.getAllAsync<Exercise>('SELECT * FROM exercises WHERE archived = 0 ORDER BY name ASC');
+  const rows = await db.getAllAsync<any>('SELECT * FROM exercises WHERE archived = 0 ORDER BY name ASC');
+  return rows.map((r) => ({
+    ...r,
+    tags: r.tags ? (typeof r.tags === 'string' ? (JSON.parse(r.tags) as string[]) : r.tags) : [],
+  }));
 }
 
 export async function addExercise(
@@ -34,15 +38,21 @@ export async function addExercise(
   repMax: number = 10,
   targetSets: number = 3,
   incrementLb: number = 5,
-  defaultWeightLb: number = 45
+  defaultWeightLb: number = 45,
+  tags: string[] = []
 ): Promise<Exercise> {
+  const tagsJson = JSON.stringify(tags.slice(0, 3));
   const result = await db.runAsync(
-    'INSERT INTO exercises (name, rep_min, rep_max, target_sets, increment_lb, default_weight_lb, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
-    [name, repMin, repMax, targetSets, incrementLb, defaultWeightLb, new Date().toISOString()]
+    'INSERT INTO exercises (name, rep_min, rep_max, target_sets, increment_lb, default_weight_lb, tags, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+    [name, repMin, repMax, targetSets, incrementLb, defaultWeightLb, tagsJson, new Date().toISOString()]
   );
-  return (await db.getFirstAsync<Exercise>('SELECT * FROM exercises WHERE id = ?', [
+  const row = (await db.getFirstAsync<any>('SELECT * FROM exercises WHERE id = ?', [
     result.lastInsertRowId,
   ]))!;
+  return {
+    ...row,
+    tags: row.tags ? (typeof row.tags === 'string' ? JSON.parse(row.tags) : row.tags) : [],
+  };
 }
 
 export async function updateExercise(
@@ -53,12 +63,24 @@ export async function updateExercise(
   repMax: number,
   targetSets: number,
   incrementLb: number = 5,
-  defaultWeightLb?: number | null
+  defaultWeightLb?: number | null,
+  tags?: string[]
 ): Promise<void> {
-  if (defaultWeightLb !== undefined) {
+  const tagsJson = tags !== undefined ? JSON.stringify(tags.slice(0, 3)) : undefined;
+  if (defaultWeightLb !== undefined && tagsJson !== undefined) {
+    await db.runAsync(
+      'UPDATE exercises SET name = ?, rep_min = ?, rep_max = ?, target_sets = ?, increment_lb = ?, default_weight_lb = ?, tags = ? WHERE id = ?',
+      [name, repMin, repMax, targetSets, incrementLb, defaultWeightLb, tagsJson, id]
+    );
+  } else if (defaultWeightLb !== undefined) {
     await db.runAsync(
       'UPDATE exercises SET name = ?, rep_min = ?, rep_max = ?, target_sets = ?, increment_lb = ?, default_weight_lb = ? WHERE id = ?',
       [name, repMin, repMax, targetSets, incrementLb, defaultWeightLb, id]
+    );
+  } else if (tagsJson !== undefined) {
+    await db.runAsync(
+      'UPDATE exercises SET name = ?, rep_min = ?, rep_max = ?, target_sets = ?, increment_lb = ?, tags = ? WHERE id = ?',
+      [name, repMin, repMax, targetSets, incrementLb, tagsJson, id]
     );
   } else {
     await db.runAsync(
@@ -119,6 +141,11 @@ export async function ensurePresetExercises(db: SQLiteDatabase): Promise<void> {
   } catch {
     // Column already exists
   }
+  try {
+    await db.execAsync(`ALTER TABLE exercises ADD COLUMN tags TEXT;`);
+  } catch {
+    // Column already exists
+  }
 
   await db.execAsync(`
     INSERT OR IGNORE INTO exercises (name, default_weight_lb, created_at) VALUES 
@@ -133,6 +160,26 @@ export async function ensurePresetExercises(db: SQLiteDatabase): Promise<void> {
     UPDATE exercises SET default_weight_lb = 0 
     WHERE name IN ('Dips', 'Pull ups') AND (default_weight_lb IS NULL OR default_weight_lb = 45);
   `);
+}
+
+export async function getAllUniqueTags(db: SQLiteDatabase): Promise<string[]> {
+  const rows = await db.getAllAsync<{ tags: string | null }>(
+    'SELECT tags FROM exercises WHERE archived = 0 AND tags IS NOT NULL'
+  );
+  const tagSet = new Set<string>();
+  for (const r of rows) {
+    if (r.tags) {
+      try {
+        const parsed = JSON.parse(r.tags);
+        if (Array.isArray(parsed)) {
+          parsed.forEach((t: unknown) => {
+            if (typeof t === 'string' && t.trim()) tagSet.add(t.trim());
+          });
+        }
+      } catch {}
+    }
+  }
+  return Array.from(tagSet).sort();
 }
 
 export async function getLastSessionSetsForExercise(

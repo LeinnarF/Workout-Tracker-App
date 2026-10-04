@@ -243,6 +243,7 @@ export default function LogScreen() {
     targetSets: number;
     incrementLb: number;
     defaultWeightLb?: number;
+    tags?: string[];
   }) => {
     if (editingExercise) {
       await updateExercise(
@@ -253,7 +254,8 @@ export default function LogScreen() {
         data.repMax,
         data.targetSets,
         data.incrementLb,
-        data.defaultWeightLb !== undefined ? data.defaultWeightLb : editingExercise.default_weight_lb
+        data.defaultWeightLb !== undefined ? data.defaultWeightLb : editingExercise.default_weight_lb,
+        data.tags
       );
     } else {
       await addExercise(
@@ -263,7 +265,8 @@ export default function LogScreen() {
         data.repMax,
         data.targetSets,
         data.incrementLb,
-        data.defaultWeightLb ?? 45
+        data.defaultWeightLb ?? 45,
+        data.tags ?? []
       );
     }
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -374,9 +377,28 @@ export default function LogScreen() {
                   <Text variant="title" color="primary">
                     {ex.name}
                   </Text>
-                  <Text variant="label" color="muted">
-                    {ex.target_sets} × {ex.rep_min}-{ex.rep_max} REPS
-                  </Text>
+                  <View style={styles.exerciseMetaRow}>
+                    <Text variant="label" color="muted">
+                      {ex.target_sets} × {ex.rep_min}-{ex.rep_max} REPS
+                    </Text>
+                    {ex.tags && ex.tags.length > 0 && (
+                      <View style={styles.exerciseTagsRow}>
+                        {ex.tags.map((t, idx) => (
+                          <View
+                            key={idx}
+                            style={[
+                              styles.exerciseTagBadge,
+                              { backgroundColor: colors.raised, borderColor: colors.outline },
+                            ]}
+                          >
+                            <Text variant="micro" color="muted" style={styles.exerciseTagBadgeText}>
+                              {t.toUpperCase()}
+                            </Text>
+                          </View>
+                        ))}
+                      </View>
+                    )}
+                  </View>
                 </View>
 
                 <View style={styles.exerciseHeaderRight}>
@@ -563,6 +585,29 @@ const styles = StyleSheet.create({
   },
   exerciseHeaderLeft: {
     flex: 1,
+  },
+  exerciseMetaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: 6,
+    marginTop: 4,
+  },
+  exerciseTagsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 4,
+  },
+  exerciseTagBadge: {
+    paddingHorizontal: 5,
+    paddingVertical: 1,
+    borderWidth: 1,
+    borderRadius: 2,
+  },
+  exerciseTagBadgeText: {
+    fontSize: 9,
+    fontFamily: 'IBMPlexMono_600SemiBold',
+    letterSpacing: 0.5,
   },
   exerciseHeaderRight: {
     flexDirection: 'row',

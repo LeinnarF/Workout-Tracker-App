@@ -99,6 +99,16 @@ export function ExerciseActionModal({
                       </Text>
                     </View>
                   )}
+                  {exercise.tags && exercise.tags.length > 0 && (
+                    <View style={[styles.specRow, { marginTop: 4 }]}>
+                      <Text variant="label" color="muted">
+                        TAGS
+                      </Text>
+                      <Text variant="label" color="primary">
+                        {exercise.tags.join(', ').toUpperCase()}
+                      </Text>
+                    </View>
+                  )}
                 </View>
 
                 <View style={styles.buttonStack}>
