@@ -202,7 +202,7 @@ const styles = StyleSheet.create({
   input: {
     width: '100%',
     height: '100%',
-    fontSize: 28,
+    fontSize: 18,
     lineHeight: 32,
     fontWeight: '500',
     fontFamily: 'IBMPlexMono_500Medium',

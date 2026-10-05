@@ -127,7 +127,7 @@ export default function ConvertScreen() {
   const unit2 = primaryUnit === 'LB' ? 'KG' : 'LB';
 
   return (
-    <Screen title="CONVERT">
+    <Screen title="CONVERTER">
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         style={styles.keyboardContainer}
@@ -249,7 +249,7 @@ export default function ConvertScreen() {
                 <Text variant="label" color="muted">
                   EACH SIDE LOAD
                 </Text>
-                <Text variant="numeral" color="primary">
+                <Text variant="title" color="primary">
                   {plateInfo.perSideLoad} LB
                 </Text>
               </View>
@@ -270,7 +270,7 @@ export default function ConvertScreen() {
                     <Text variant="title" color="primary">
                       {p.weight} LB PLATE
                     </Text>
-                    <Text variant="numeral" color="primary">
+                    <Text variant="title" color="primary">
                       × {p.count}
                     </Text>
                   </View>
@@ -312,7 +312,7 @@ export default function ConvertScreen() {
                   },
                 ]}
               >
-                <Text variant="numeral" color="primary">
+                <Text variant="title" color="primary">
                   {m.lb}
                 </Text>
                 <Text variant="micro" color="muted" style={{ marginTop: 2 }}>

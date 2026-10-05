@@ -221,8 +221,8 @@ export function ExerciseModal({ visible, exercise, onClose, onSave }: Props) {
                           borderColor: colors.outline,
                         },
                       ]}
-                      placeholder="Add tag (e.g. CHEST, COMPOUND)..."
-                      placeholderTextColor={colors.textMuted}
+                      // placeholder=""
+                      // placeholderTextColor={colors.textMuted}
                       value={tagInput}
                       onChangeText={setTagInput}
                       onSubmitEditing={handleAddTag}
@@ -425,7 +425,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderRadius: 2,
     paddingHorizontal: 10,
-    fontSize: 12,
+    fontSize: 14,
     fontFamily: 'IBMPlexMono_400Regular',
   },
   addTagBtn: {

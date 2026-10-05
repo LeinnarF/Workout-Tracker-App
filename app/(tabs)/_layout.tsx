@@ -154,7 +154,7 @@ export default function TabLayout() {
 
 const styles = StyleSheet.create({
   tabBar: {
-    height: 56,
+    height: 70,
     flexDirection: 'row',
     borderTopWidth: 1,
   },
