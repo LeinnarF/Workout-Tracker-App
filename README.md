@@ -43,7 +43,7 @@ A fast, clean, and **100% offline-first** mobile workout tracker built with **Ex
 - **Transport Controls**: Intuitive square (stop/reset) and triangle/pause (start/resume/pause) controls.
 - **Quick Rest Presets**: One-tap buttons for `30s`, `1:00`, `1:30`, `2:00`, `2:30`, and `3:00` to set rest periods instantly.
 - **Custom Duration Input**: Direct input fields for Minutes and Seconds to customize any specific rest period.
-- **Audio Chime & Haptics**: Plays a completion chime alert (`expo-av`) and tactile haptic feedback when the timer expires. Keeps the display awake during active countdowns.
+- **Audio Chime & Haptics**: Plays a completion chime alert (`expo-audio`) and tactile haptic feedback when the timer expires. Keeps the display awake during active countdowns.
 
 ### 5. Weight Converter & Plate Calculator
 - **Bi-directional Conversion**: Instant real-time conversion between Pounds (lb) and Kilograms (kg).
@@ -61,11 +61,11 @@ A fast, clean, and **100% offline-first** mobile workout tracker built with **Ex
 
 ## Tech Stack
 
-- **Framework**: [Expo SDK 54](https://expo.dev) with [React Native 0.81](https://reactnative.dev)
+- **Framework**: [Expo SDK 57](https://expo.dev) with [React Native 0.86](https://reactnative.dev)
 - **Routing**: [Expo Router](https://docs.expo.dev/router/introduction/) (File-based navigation)
 - **Database**: `expo-sqlite` (Local persistent SQLite engine)
 - **Charts & Graphics**: `react-native-gifted-charts` & `react-native-svg`
-- **Audio & Haptics**: `expo-av`, `expo-haptics`, `expo-keep-awake`
+- **Audio & Haptics**: `expo-audio`, `expo-haptics`, `expo-keep-awake`
 - **File System & Sharing**: `expo-file-system`, `expo-sharing`
 - **Language**: TypeScript
 
