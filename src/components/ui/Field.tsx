@@ -36,7 +36,7 @@ export function Field({
       ? typography.body
       : {
           fontFamily: 'IBMPlexMono_500Medium',
-          fontSize: 16,
+          fontSize: 14,
           lineHeight: 22,
           fontWeight: '500' as const,
         };

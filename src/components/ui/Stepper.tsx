@@ -85,8 +85,9 @@ export function Stepper({
   const isMinusDisabled = min !== undefined && value <= min;
   const isPlusDisabled = max !== undefined && value >= max;
 
-  const buttonDimension = compact ? 40 : 48;
-  const iconSize = compact ? 16 : 20;
+  const buttonHeight = compact ? 40 : 48;
+  const buttonWidth = compact ? 32 : 38;
+  const iconSize = compact ? 16 : 18;
 
   return (
     <View style={styles.container}>
@@ -99,11 +100,12 @@ export function Stepper({
           onPressIn={() => !isMinusDisabled && startRepeating(-1)}
           onPressOut={stopRepeating}
           disabled={isMinusDisabled}
+          hitSlop={6}
           style={({ pressed }) => [
             styles.stepperButton,
             {
-              width: buttonDimension,
-              height: buttonDimension,
+              width: buttonWidth,
+              height: buttonHeight,
               backgroundColor: colors.raised,
               borderColor: isMinusDisabled ? colors.outline : pressed ? colors.text : colors.outline,
               borderRadius: radius.control,
@@ -120,7 +122,8 @@ export function Stepper({
           style={[
             styles.valueContainer,
             {
-              height: buttonDimension,
+              height: buttonHeight,
+              minWidth: compact ? 44 : 56,
               backgroundColor: colors.surface,
               borderColor: colors.outline,
             },
@@ -130,7 +133,6 @@ export function Stepper({
             ref={inputRef}
             style={[
               styles.input,
-              compact && styles.compactInput,
               {
                 color: colors.text,
               },
@@ -139,6 +141,8 @@ export function Stepper({
             value={value.toString()}
             onChangeText={handleTextChange}
             selectTextOnFocus
+            multiline={false}
+            numberOfLines={1}
             textAlign="center"
             textAlignVertical="center"
           />
@@ -149,11 +153,12 @@ export function Stepper({
           onPressIn={() => !isPlusDisabled && startRepeating(1)}
           onPressOut={stopRepeating}
           disabled={isPlusDisabled}
+          hitSlop={6}
           style={({ pressed }) => [
             styles.stepperButton,
             {
-              width: buttonDimension,
-              height: buttonDimension,
+              width: buttonWidth,
+              height: buttonHeight,
               backgroundColor: colors.raised,
               borderColor: isPlusDisabled ? colors.outline : pressed ? colors.text : colors.outline,
               borderRadius: radius.control,
@@ -171,7 +176,7 @@ export function Stepper({
 const styles = StyleSheet.create({
   container: {
     alignItems: 'center',
-    marginHorizontal: 4,
+    marginHorizontal: 0,
     flex: 1,
   },
   label: {
@@ -185,14 +190,11 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   stepperButton: {
-    width: 48,
-    height: 48,
     borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
   },
   valueContainer: {
-    height: 48,
     flex: 1,
     borderTopWidth: 1,
     borderBottomWidth: 1,
@@ -202,17 +204,12 @@ const styles = StyleSheet.create({
   input: {
     width: '100%',
     height: '100%',
-    fontSize: 18,
-    lineHeight: 32,
+    fontSize: 22,
     fontWeight: '500',
     fontFamily: 'IBMPlexMono_500Medium',
     fontVariant: ['tabular-nums'],
     includeFontPadding: false,
-    paddingHorizontal: 4,
+    paddingHorizontal: 2,
     paddingVertical: 0,
-  },
-  compactInput: {
-    fontSize: 18,
-    lineHeight: 22,
   },
 });

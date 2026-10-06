@@ -9,7 +9,7 @@ import {
 import { useSQLiteContext } from 'expo-sqlite';
 import { useFocusEffect, router } from 'expo-router';
 import * as Haptics from 'expo-haptics';
-import { Plus, Settings as SettingsIcon, ChevronDown, ChevronUp, Sun, Moon } from 'lucide-react-native';
+import { Plus, Settings as SettingsIcon, ChevronDown, ChevronUp, ArrowUp as Overload} from 'lucide-react-native';
 
 import { Session, Exercise, SetRecord } from '../../src/db/types';
 import {
@@ -338,24 +338,6 @@ export default function LogScreen() {
         <Plus size={20} color={colors.text} strokeWidth={1.75} />
       </Pressable>
       <Pressable
-        onPress={() => {
-          try {
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-          } catch {
-            // ignore
-          }
-          setThemeMode(isDark ? 'light' : 'dark');
-        }}
-        hitSlop={8}
-        style={styles.iconBtn}
-      >
-        {isDark ? (
-          <Sun size={20} color={colors.textMuted} strokeWidth={1.75} />
-        ) : (
-          <Moon size={20} color={colors.textMuted} strokeWidth={1.75} />
-        )}
-      </Pressable>
-      <Pressable
         onPress={() => router.push('/(tabs)/settings')}
         hitSlop={8}
         style={styles.iconBtn}
@@ -439,7 +421,7 @@ export default function LogScreen() {
                   {exSets.length > 0 && (
                     <Badge
                       label={isMaxSetsReached ? 'DONE' : `${exSets.length}/${ex.target_sets}`}
-                      variant={isMaxSetsReached ? 'overload' : 'neutral'}
+                      variant={isMaxSetsReached ? 'done' : 'neutral'}
                     />
                   )}
                   {isExpanded ? (
@@ -469,12 +451,9 @@ export default function LogScreen() {
                         { backgroundColor: colors.accentTint, borderColor: colors.accent },
                       ]}
                     >
-                      <Badge
-                        label={`READY +${ex.increment_lb} LB → ${suggestion.suggestedWeightLb} LB`}
-                        variant="overload"
-                      />
+											<Overload size={15} color={colors.accent} strokeWidth={2.0} />
                       <Text variant="micro" color="accent" style={styles.tapToAccept}>
-                        TAP TO APPLY
+												INCREASE WEIGHT +{suggestion.suggestedWeightLb} LB
                       </Text>
                     </Pressable>
                   )}
@@ -675,7 +654,8 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   tapToAccept: {
-    fontWeight: '700',
+    fontWeight: '500',
+		fontSize: 12,
   },
   stepperContainer: {
     flexDirection: 'row',

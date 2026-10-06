@@ -54,7 +54,7 @@ export function SetRow({
 
       {/* Weight Column */}
       <View style={styles.weightCol}>
-        <Text variant="numeral" color="primary">
+        <Text variant="title" color="primary">
           {weight}
         </Text>
         <Text variant="micro" color="muted" style={styles.unitText}>
@@ -64,7 +64,7 @@ export function SetRow({
 
       {/* Reps Column */}
       <View style={styles.repsCol}>
-        <Text variant="numeral" color="primary">
+        <Text variant="title" color="primary">
           {reps}
         </Text>
         <Text variant="micro" color="muted" style={styles.unitText}>

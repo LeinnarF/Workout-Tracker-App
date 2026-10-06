@@ -1,12 +1,12 @@
 import React from 'react';
 import { View, StyleSheet, ViewStyle } from 'react-native';
-import { ArrowUp } from 'lucide-react-native';
+import { ArrowUp, Check } from 'lucide-react-native';
 import { useTheme } from '../../theme/useTheme';
 import { Text } from './Text';
 
 export interface BadgeProps {
   label: string;
-  variant?: 'overload' | 'pr' | 'neutral';
+  variant?: 'overload' | 'pr' | 'neutral' | 'done';
   style?: ViewStyle;
 }
 
@@ -28,6 +28,28 @@ export function Badge({ label, variant = 'neutral', style }: BadgeProps) {
         ]}
       >
         <ArrowUp size={12} color={colors.accent} strokeWidth={2.5} style={{ marginRight: 4 }} />
+        <Text variant="micro" color="accent">
+          {label}
+        </Text>
+      </View>
+    );
+  }
+
+  if (variant === 'done') {
+    return (
+      <View
+        style={[
+          styles.badge,
+          {
+            backgroundColor: colors.accentTint,
+            borderRadius: radius.control,
+            borderColor: colors.accent,
+            borderWidth: 1,
+          },
+          style,
+        ]}
+      >
+        <Check size={12} color={colors.accent} strokeWidth={2.5} style={{ marginRight: 4 }} />
         <Text variant="micro" color="accent">
           {label}
         </Text>

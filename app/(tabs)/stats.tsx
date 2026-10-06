@@ -339,7 +339,7 @@ export default function StatsScreen() {
   }));
 
   return (
-    <Screen title="STATS">
+    <Screen title="STATISTICS">
       {/* Segmented View Mode Strip (0 radius, 1px outline) */}
       <View style={[styles.viewModeStrip, { borderColor: colors.outline }]}>
         <Pressable
@@ -488,9 +488,6 @@ export default function StatsScreen() {
                   <Text variant="label" color="primary">
                     PROGRESSION RADAR
                   </Text>
-                  <Text variant="micro" color="muted">
-                    DOUBLE PROGRESSION
-                  </Text>
                 </View>
 
                 <View style={styles.radarList}>
@@ -506,10 +503,10 @@ export default function StatsScreen() {
                       ]}
                     >
                       <View style={{ flex: 1 }}>
-                        <Text variant="title" color="primary">
+                        <Text variant="label" color="primary">
                           {item.exerciseName}
                         </Text>
-                        <Text variant="label" color="muted">
+                        <Text variant="micro" color="muted">
                           {item.currentWeightLb} LB · {item.targetSets}×{item.repMax}
                         </Text>
                       </View>
@@ -548,7 +545,7 @@ export default function StatsScreen() {
                       ]}
                     >
                       <View style={styles.prHeader}>
-                        <Text variant="title" color="primary">
+                        <Text variant="label" color="primary">
                           {pr.exerciseName}
                         </Text>
                       </View>
@@ -621,7 +618,7 @@ export default function StatsScreen() {
               <Text variant="micro" color="muted">
                 EXERCISE
               </Text>
-              <Text variant="title" color="primary">
+              <Text variant="label" color="primary">
                 {selectedExerciseObj?.name || 'SELECT EXERCISE'}
               </Text>
             </View>
@@ -937,7 +934,7 @@ export default function StatsScreen() {
                       ]}
                     >
                       <View style={{ flex: 1 }}>
-                        <Text variant="title" color="primary">
+                        <Text variant="micro" color="primary">
                           {dateStr}
                         </Text>
                       </View>
@@ -953,13 +950,13 @@ export default function StatsScreen() {
                             style={styles.headerTrashBtn}
                             accessibilityLabel="Delete workout session"
                           >
-                            <Trash2 size={16} color={colors.textMuted} strokeWidth={1.75} />
+                            <Trash2 size={12} color={colors.textMuted} strokeWidth={1.5} />
                           </Pressable>
                         )}
                         {isExpanded ? (
                           <ChevronUp size={18} color={colors.text} strokeWidth={1.75} />
                         ) : (
-                          <ChevronRight size={18} color={colors.textMuted} strokeWidth={1.75} />
+                          <ChevronDown size={18} color={colors.textMuted} strokeWidth={1.75} />
                         )}
                       </View>
                     </Pressable>
@@ -1023,16 +1020,6 @@ export default function StatsScreen() {
                                   </Text>
                                 </View>
                               ))}
-                            </View>
-
-                            <View style={styles.deleteSessionFooter}>
-                              <Rule variant="dashed" style={{ marginVertical: 12 }} />
-                              <Button
-                                label="DELETE SESSION"
-                                variant="secondary"
-                                icon={<Trash2 size={16} color={colors.textMuted} strokeWidth={1.75} />}
-                                onPress={() => handleDeleteSession(sess.id)}
-                              />
                             </View>
                           </>
                         )}

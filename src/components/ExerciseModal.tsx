@@ -173,6 +173,7 @@ export function ExerciseModal({ visible, exercise, onClose, onSave }: Props) {
                 onChangeText={setName}
                 autoFocus={!exercise}
                 returnKeyType="done"
+								variant='title'
               />
 
               <Rule style={styles.ruleSpacing} />
